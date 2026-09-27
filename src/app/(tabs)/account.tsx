@@ -46,6 +46,25 @@ const COPY = {
       description: 'View your available gift cards and vouchers',
     },
     wallet: { title: 'eWallet', description: 'Manage your balance and view transaction history' },
+    security: {
+      title: 'Connection & Security',
+      description: 'Configure your connection parameters',
+    },
+    // Confirmed from the live /contactus page (its heading and intro line); the live "My
+    // Account" page has no such card — the site links it from the header ("Contact Support").
+    contact: {
+      title: 'Contact Us',
+      description: 'Share your query and our team will get back to you quickly.',
+    },
+    // Confirmed from the live /helpdesk page's heading. No description: the live site has no
+    // visible link card for this form (only a hidden default "Help" menu item).
+    helpdesk: { title: 'Submit a Ticket' },
+    // Confirmed from the live "My Account" page's Tickets card (present in its HTML, but hidden
+    // there with d-none).
+    tickets: { title: 'Tickets', description: 'Follow all your helpdesk tickets' },
+    // Confirmed from the live "My Account" page's Quotations card (hidden there with d-none); it
+    // has a title only.
+    quotations: { title: 'Quotations to review' },
   },
   editInformation: 'Edit information',
   // PLACEHOLDER COPY (not confirmed anywhere).
@@ -64,7 +83,8 @@ type ScreenState =
 type AccountCard = {
   key: string;
   title: string;
-  description: string;
+  /** Omitted when the live site has no confirmed description for this link. */
+  description?: string;
   href: Href;
   /** Right-hand value (live: "0 Cards", "₪0.00"). `null` = missing from the backend so far. */
   badge?: string | null;
@@ -126,6 +146,11 @@ export default function AccountScreen() {
     { key: 'giftCards', ...COPY.cards.giftCards, href: '/my/gift-cards', badge: null },
     // MISSING: eWallet balance (live "₪0.00") — no JSON source confirmed yet.
     { key: 'wallet', ...COPY.cards.wallet, href: '/my/wallet', badge: null },
+    { key: 'security', ...COPY.cards.security, href: '/my/security' },
+    { key: 'contact', ...COPY.cards.contact, href: '/contactus' },
+    { key: 'helpdesk', ...COPY.cards.helpdesk, href: '/helpdesk' },
+    { key: 'tickets', ...COPY.cards.tickets, href: '/my/tickets' },
+    { key: 'quotations', ...COPY.cards.quotations, href: '/my/quotes' },
   ];
   const email = session.login.includes('@') ? session.login : null;
 
@@ -161,9 +186,11 @@ export default function AccountScreen() {
               onPress={() => router.push(card.href)}
               style={({ pressed }) => [styles.card, styles.linkCard, pressed && styles.pressed]}
               accessibilityRole="button"
-              accessibilityLabel={`${card.title}. ${card.description}`}>
+              accessibilityLabel={card.description ? `${card.title}. ${card.description}` : card.title}>
               <Text style={styles.cardTitle}>{card.title}</Text>
-              <Text style={styles.cardDescription}>{card.description}</Text>
+              {card.description ? (
+                <Text style={styles.cardDescription}>{card.description}</Text>
+              ) : null}
               {card.badge !== undefined &&
                 (card.badge === null ? (
                   <MissingValue />

@@ -1,4 +1,5 @@
-import type { ReturnDetail } from '../returns';
+import { mockOrderDetail } from './orders.mock';
+import type { ReturnDetail, ReturnForm } from '../returns';
 
 /*
  * ⚠️ TEMPORARY MOCK RETURNS — NOT REAL, DO NOT SHIP ⚠️
@@ -65,4 +66,41 @@ const RETURNS: ReturnDetail[] = [
 
 export function mockReturnDetail(id: number): ReturnDetail | null {
   return RETURNS.find((entry) => entry.id === id) ?? null;
+}
+
+/**
+ * The live form's "Reason for Return" options, exactly as staging lists them (checked 2026-09-27),
+ * without the empty "Select reason" option.
+ */
+const REASONS: ReturnForm['reasons'] = [
+  { code: 'damaged', label: 'Damaged Product' },
+  { code: 'wrong_item', label: 'Wrong Item Received' },
+  { code: 'not_as_described', label: 'Not as Described' },
+  { code: 'quality_issue', label: 'Quality Issue' },
+  { code: 'size_issue', label: 'Size/Fit Issue' },
+  { code: 'changed_mind', label: 'Changed Mind' },
+  { code: 'other', label: 'Other' },
+];
+
+/**
+ * The return form for a mock order: its product lines (not the delivery line), each returnable up
+ * to the quantity ordered — like staging's S00073 form ("Badminton Racket", 2 / 2). Parsing the
+ * quantity out of "2.00 Units" happens ONLY in this mock; the real route returns numbers.
+ */
+export function mockReturnForm(orderId: number): ReturnForm | null {
+  const order = mockOrderDetail(orderId);
+  if (!order) {
+    return null;
+  }
+  return {
+    order: { id: order.id, name: order.name },
+    lines: order.lines
+      .filter((line) => !line.isDelivery)
+      .map((line) => ({
+        lineId: line.id,
+        productName: line.name,
+        maxQuantity: Math.max(1, Math.round(parseFloat(line.quantityFormatted) || 1)),
+      })),
+    reasons: REASONS,
+  };
 }

@@ -1,4 +1,4 @@
-import { mockReturnDetail } from './mocks/returns.mock';
+import { mockReturnDetail, mockReturnForm } from './mocks/returns.mock';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -6,9 +6,10 @@ import { mockReturnDetail } from './mocks/returns.mock';
  *
  * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
  * No route returns a return request as JSON: /my/returns and /my/returns/<id> are server-rendered
- * HTML only, and JSON calls to them are rejected (checked on staging 2026-09-27). Until a route
- * exists, fetchReturn returns SAMPLE DATA (src/api/mocks/returns.mock.ts). Amounts are the
- * backend's formatted strings — nothing is calculated in the app.
+ * HTML only, and JSON calls to them are rejected (checked on staging 2026-09-27). Requested in
+ * docs/backend-requests/006-returns-json.md. Until it ships, fetchReturn returns SAMPLE DATA
+ * (src/api/mocks/returns.mock.ts). Amounts are the backend's formatted strings — nothing is
+ * calculated in the app.
  * ---------------------------------------------------------------------------------------------
  */
 
@@ -62,8 +63,51 @@ export type ReturnResult =
 /**
  * TEMPORARY: returns a mock return (isSampleData: true); `returnRequest` is null when the id is
  * unknown.
- * TODO: replace with a return-detail route once it exists.
+ * TODO: replace with the return-detail route from docs/backend-requests/006-returns-json.md.
  */
 export async function fetchReturn(id: number): Promise<ReturnResult> {
   return { ok: true, returnRequest: mockReturnDetail(id), isSampleData: true };
+}
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * New return request (the live /my/orders/<id>/return form).
+ *
+ * ⚠️ NOT SUBMITTABLE — NO JSON ROUTE ⚠️
+ * The live form is server-rendered HTML that posts multipart/form-data to
+ * /my/orders/return/submit (a JSON call to it is rejected: 400). The form's options (returnable
+ * lines, reasons) also only exist in that HTML. Until docs/backend-requests/006-returns-json.md
+ * ships, fetchReturnForm returns SAMPLE DATA and the app's Submit stays disabled — nothing is
+ * sent.
+ * ---------------------------------------------------------------------------------------------
+ */
+
+/** One returnable line (live: checkbox + "Qty to Return", min 1, max = what's returnable). */
+export type ReturnFormLine = {
+  /** sale.order.line id (live input names: line_<id>_selected / line_<id>_qty). */
+  lineId: number;
+  productName: string;
+  maxQuantity: number;
+};
+
+/** Live "Reason for Return" option, e.g. { code: 'not_as_described', label: 'Not as Described' }. */
+export type ReturnReasonOption = { code: string; label: string };
+
+export type ReturnForm = {
+  order: { id: number; name: string };
+  lines: ReturnFormLine[];
+  reasons: ReturnReasonOption[];
+};
+
+export type ReturnFormResult =
+  | { ok: true; form: ReturnForm | null; isSampleData: boolean }
+  | { ok: false; message: string };
+
+/**
+ * TEMPORARY: returns the mock form for an order (isSampleData: true); `form` is null when the
+ * order is unknown.
+ * TODO: replace with the return-form route from docs/backend-requests/006-returns-json.md.
+ */
+export async function fetchReturnForm(orderId: number): Promise<ReturnFormResult> {
+  return { ok: true, form: mockReturnForm(orderId), isSampleData: true };
 }

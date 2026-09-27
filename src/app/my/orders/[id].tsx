@@ -37,10 +37,11 @@ import { Colors } from '@/theme/theme';
  * it next to a "Waiting Payment" invoice (#005, bug 2), so it's never shown unconditionally.
  *
  * Terms & Conditions opens the live terms page in an in-app WebView (src/app/terms.tsx).
- * Not functional yet (no JSON route): Send only logs; Return opens a placeholder popup;
- * "Return / Reschedule Items" is disabled ("Coming soon"). When the order already has return
- * requests, a "Previous Return Requests for This Order" list replaces that button; a row opens
- * the return detail screen (src/app/my/returns/[id].tsx).
+ * Not functional yet (no JSON route): Send only logs; Return opens a placeholder popup.
+ * "Return / Reschedule Items" opens the return form (src/app/my/orders/[id]/return.tsx; its submit
+ * is disabled until #006). When the order already has return requests, a "Previous Return
+ * Requests for This Order" list replaces that button; a row opens the return detail screen
+ * (src/app/my/returns/[id].tsx).
  */
 
 const COPY = {
@@ -76,7 +77,6 @@ const COPY = {
   // PLACEHOLDER COPY (not confirmed anywhere).
   sku: 'SKU:',
   trackingNumber: 'Tracking number:',
-  comingSoon: 'Coming soon',
   notFound: 'This order could not be found.',
 };
 
@@ -279,18 +279,20 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
           ))}
         </Section>
       ) : (
-        /* ---- Return / Reschedule Items (disabled until a return route exists) ---- */
-        <View
-          style={styles.disabledButton}
-          accessible
+        /* ---- Return / Reschedule Items → return form (live: btn-primary, reply icon) ---- */
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/my/orders/[id]/return', params: { id: String(order.id) } })
+          }
           accessibilityRole="button"
-          accessibilityState={{ disabled: true }}
-          accessibilityLabel={`${COPY.returnReschedule}, ${COPY.comingSoon}`}>
-          <Text style={styles.disabledButtonText}>{COPY.returnReschedule}</Text>
-          <View style={styles.comingSoon}>
-            <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-          </View>
-        </View>
+          style={({ pressed }) => [styles.returnButton, pressed && styles.pressed]}>
+          <SymbolView
+            name={{ ios: 'arrowshape.turn.up.left', android: 'reply', web: 'reply' }}
+            size={16}
+            tintColor={Colors.white}
+          />
+          <Text style={styles.returnButtonText}>{COPY.returnReschedule}</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -652,35 +654,20 @@ const styles = StyleSheet.create({
   decisionBadgeText: {
     color: Colors.successText,
   },
-  disabledButton: {
+  returnButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     minHeight: 48,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
+    backgroundColor: Colors.primaryOrange,
   },
-  disabledButtonText: {
+  returnButtonText: {
     fontFamily: Fonts.primary,
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
+    color: Colors.white,
   },
   pressed: {
     opacity: 0.85,
