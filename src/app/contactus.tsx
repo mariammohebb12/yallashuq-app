@@ -1,19 +1,29 @@
 import { Stack } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { FieldLabel, TextField } from '@/components/form-fields';
-import { SampleDataBanner } from '@/components/order-parts';
+import { sendContactMessage } from '@/api/contact';
+import { FieldError, FieldLabel, REQUIRED_MESSAGE, TextField } from '@/components/form-fields';
+import { FormMessage } from '@/components/form-message';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
 /*
  * Screen: Contact Us — the live /contactus page (opened from the Account tab).
  *
- * ⚠️ SENDING ISN'T AVAILABLE — FIELDS AND SUBMIT ARE DISABLED ⚠️
- * The live form is a plain HTML POST to /contactus/submit with a csrf_token (full page reload);
- * a JSON call to it is rejected (400) and the site's JS doesn't submit it (checked on staging
- * 2026-09-27). Sending from the app hasn't been tested, so nothing can be typed or sent here — no
- * fake success.
+ * REAL: "Submit Message" posts to the live /contactus/submit route, like the website's form
+ * (sendContactMessage in src/api/contact.ts — an HTML-form workaround, no JSON route exists).
+ * Success is shown only when the backend answers with its success redirect; its own error
+ * message ("Name, email, and message are required.") is shown as-is. The live page isn't
+ * pre-filled, even when signed in (checked on staging 2026-09-27), so neither is this one.
  *
  * Same fields as the live form, in its order: Full Name (required), Email (required), Phone,
  * Subject, Message (required), then "Submit Message".
@@ -31,50 +41,123 @@ const COPY = {
   subject: 'Subject',
   message: 'Message',
   submit: 'Submit Message',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  notAvailable: 'Sending messages from the app isn’t available yet',
-  comingSoon: 'Coming soon',
+  success: 'Thanks, your message has been submitted successfully.',
 };
 
+type Field = 'name' | 'email' | 'message';
+
 export default function ContactUsScreen() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const [formError, setFormError] = useState<string>();
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (submitting) {
+      return;
+    }
+    // Live: name, email and message are `required` inputs.
+    const missing: Partial<Record<Field, string>> = {};
+    if (!name.trim()) missing.name = REQUIRED_MESSAGE;
+    if (!email.trim()) missing.email = REQUIRED_MESSAGE;
+    if (!message.trim()) missing.message = REQUIRED_MESSAGE;
+    setErrors(missing);
+    setFormError(undefined);
+    setSent(false);
+    if (Object.keys(missing).length > 0) {
+      return;
+    }
+    setSubmitting(true);
+    const result = await sendContactMessage({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      subject: subject.trim(),
+      message: message.trim(),
+    });
+    setSubmitting(false);
+    if (result.ok) {
+      // Live: the page reloads with an empty form and the success alert.
+      setName('');
+      setEmail('');
+      setPhone('');
+      setSubject('');
+      setMessage('');
+      setSent(true);
+    } else {
+      setFormError(result.message);
+    }
+  }
+
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ title: COPY.title }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <SampleDataBanner message={COPY.notAvailable} />
         <Text style={styles.heading}>{COPY.title}</Text>
         <Text style={styles.intro}>{COPY.intro}</Text>
+        <FormMessage type="success" message={sent ? COPY.success : undefined} />
+        <FormMessage type="error" message={formError} />
 
         <View style={styles.card}>
-          <TextField label={COPY.fullName} editable={false} />
-          <TextField label={COPY.email} editable={false} />
-          <TextField label={COPY.phone} editable={false} />
-          <TextField label={COPY.subject} editable={false} />
+          <TextField
+            label={COPY.fullName}
+            value={name}
+            onChangeText={setName}
+            error={errors.name}
+            autoComplete="name"
+          />
+          <TextField
+            label={COPY.email}
+            value={email}
+            onChangeText={setEmail}
+            error={errors.email}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
+          <TextField
+            label={COPY.phone}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            autoComplete="tel"
+          />
+          <TextField label={COPY.subject} value={subject} onChangeText={setSubject} />
           <View>
             <FieldLabel>{COPY.message}</FieldLabel>
             {/* Live: a textarea. Same box as the Withdraw screen's "Payment Details". */}
             <TextInput
-              editable={false}
+              value={message}
+              onChangeText={setMessage}
               multiline
               textAlignVertical="top"
               accessibilityLabel={COPY.message}
-              style={styles.textarea}
+              style={[styles.textarea, errors.message ? styles.textareaError : null]}
             />
+            <FieldError message={errors.message} />
           </View>
 
-          {/* Disabled until sending is confirmed to work from the app. Not pressable. */}
-          {/* Blocked on docs/backend-requests/008-contact-us-json.md (no JSON submit route). */}
-          <View
-            style={styles.disabledButton}
-            accessible
+          {/* Live: .ysq-contact-actions .btn (orange, min 170×42, radius 10, 13px bold). */}
+          <Pressable
+            onPress={handleSubmit}
+            disabled={submitting}
+            style={({ pressed }) => [
+              styles.submitButton,
+              (pressed || submitting) && styles.submitPressed,
+            ]}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            accessibilityLabel={`${COPY.submit}, ${COPY.comingSoon}`}>
-            <Text style={styles.disabledButtonText}>{COPY.submit}</Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-            </View>
-          </View>
+            accessibilityState={{ disabled: submitting, busy: submitting }}>
+            {submitting ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.submitText}>{COPY.submit}</Text>
+            )}
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -129,38 +212,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.dark,
   },
-  // Same disabled "Coming soon" button as the Security screen and the return form.
-  disabledButton: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  textareaError: {
+    borderColor: Colors.errorText,
+  },
+  submitButton: {
+    alignSelf: 'flex-start',
+    minWidth: 170,
+    minHeight: 42,
+    marginTop: 2,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
+    backgroundColor: Colors.primaryOrange,
   },
-  disabledButtonText: {
+  submitPressed: {
+    opacity: 0.85,
+  },
+  submitText: {
     fontFamily: Fonts.primary,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
+    color: Colors.white,
   },
 });

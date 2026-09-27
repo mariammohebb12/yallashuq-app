@@ -6,6 +6,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchReturnForm, type ReturnForm, type ReturnFormLine } from '@/api/returns';
+import { DisabledButton } from '@/components/coming-soon';
 import { FieldLabel, PressableField, TextField } from '@/components/form-fields';
 import { FormMessage } from '@/components/form-message';
 import { SampleDataBanner } from '@/components/order-parts';
@@ -48,7 +49,6 @@ const COPY = {
   noImage: 'No image selected',
   addPhoto: 'Add photo',
   removePhoto: 'Remove photo',
-  comingSoon: 'Coming soon',
   notFound: 'This order could not be found.',
   noItems: 'There are no items left to return on this order.',
 };
@@ -225,17 +225,7 @@ function ReturnFormBody({ form }: { form: ReturnForm }) {
       </Card>
 
       {/* ---- Submit: disabled until a return route exists (#006) ---- */}
-      <View
-        style={styles.disabledButton}
-        accessible
-        accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
-        accessibilityLabel={`${COPY.submit}, ${COPY.comingSoon}`}>
-        <Text style={styles.disabledButtonText}>{COPY.submit}</Text>
-        <View style={styles.comingSoon}>
-          <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-        </View>
-      </View>
+      <DisabledButton label={COPY.submit} />
 
       <PickerModal
         visible={reasonPickerOpen}
@@ -506,35 +496,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 13,
     color: Colors.helperText,
-  },
-  disabledButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
 });

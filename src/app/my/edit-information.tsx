@@ -3,7 +3,9 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { fetchProfileNames } from '@/api/profile';
 import { fetchSession } from '@/api/session';
+import { DisabledButton } from '@/components/coming-soon';
 import { FieldLabel, PressableField, TextField } from '@/components/form-fields';
 import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
@@ -24,8 +26,9 @@ import { Colors } from '@/theme/theme';
  * "Save Profile". Company Name, VAT Number and Country are disabled on the live form too, with the
  * note shown here.
  * Values: the live form is pre-filled with the customer's details, but no JSON route returns them
- * (#004), so only Email is filled in — from the session login, when it's an email. First / Last
- * Name aren't split out of the session's full name (that would be a guess).
+ * (#004). Email comes from the session login, when it's an email. First / Last Name are read from
+ * the live /my/account form's own pre-filled inputs (src/api/profile.ts, TEMPORARY HTML
+ * workaround) — the backend's split of the full name, not one guessed here.
  * Deliberately NOT here: the live page's "Change Password" section (/my/account/change_password)
  * and the intro "Manage your profile, address details, and password in one place." — which of the
  * two live password forms is authoritative is still open; passwords stay on the Security screen.
@@ -54,19 +57,27 @@ const COPY = {
   save: 'Save Profile',
   // PLACEHOLDER COPY (not confirmed anywhere).
   notAvailable: 'Editing your profile from the app isn’t available yet',
-  comingSoon: 'Coming soon',
 };
 
 export default function EditInformationScreen() {
   const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const requestId = useRef(0);
 
-  // Real: the signed-in login, shown in Email when it's an email address.
+  // Real: the signed-in login (Email, when it's an email address) and the live form's names.
   const load = useCallback(async () => {
     const id = ++requestId.current;
-    const result = await fetchSession();
-    if (id === requestId.current && result.ok && result.session) {
+    const [result, names] = await Promise.all([fetchSession(), fetchProfileNames()]);
+    if (id !== requestId.current) {
+      return;
+    }
+    if (result.ok && result.session) {
       setEmail(result.session.login.includes('@') ? result.session.login : '');
+    }
+    if (names.ok && names.names) {
+      setFirstName(names.names.firstName);
+      setLastName(names.names.lastName);
     }
   }, []);
 
@@ -105,8 +116,8 @@ export default function EditInformationScreen() {
 
           <Text style={styles.note}>{COPY.lockedNote}</Text>
 
-          <TextField label={COPY.firstName} editable={false} />
-          <TextField label={COPY.lastName} editable={false} />
+          <TextField label={COPY.firstName} value={firstName} editable={false} />
+          <TextField label={COPY.lastName} value={lastName} editable={false} />
           <TextField label={COPY.email} value={email} editable={false} />
           <TextField label={COPY.phone} editable={false} />
           <TextField label={COPY.companyName} editable={false} />
@@ -131,17 +142,7 @@ export default function EditInformationScreen() {
           <TextField label={COPY.zip} editable={false} />
 
           {/* Blocked on docs/backend-requests/013-profile-update-json.md. Not pressable. */}
-          <View
-            style={styles.disabledButton}
-            accessible
-            accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            accessibilityLabel={`${COPY.save}, ${COPY.comingSoon}`}>
-            <Text style={styles.disabledButtonText}>{COPY.save}</Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-            </View>
-          </View>
+          <DisabledButton label={COPY.save} />
         </View>
       </ScrollView>
     </View>
@@ -192,38 +193,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: Colors.helperText,
-  },
-  disabledButton: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
 });

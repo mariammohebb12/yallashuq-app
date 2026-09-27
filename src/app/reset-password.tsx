@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { DisabledButton } from '@/components/coming-soon';
 import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
@@ -34,7 +35,6 @@ const COPY = {
   backToLogin: 'Back to Login',
   // PLACEHOLDER COPY (not confirmed anywhere).
   notAvailable: 'Resetting your password from the app isn’t available yet',
-  comingSoon: 'Coming soon',
 };
 
 export default function ResetPasswordScreen() {
@@ -76,17 +76,7 @@ export default function ResetPasswordScreen() {
         </View>
 
         {/* Blocked on docs/backend-requests/012-password-reset-json.md. Not pressable. */}
-        <View
-          style={styles.disabledButton}
-          accessible
-          accessibilityRole="button"
-          accessibilityState={{ disabled: true }}
-          accessibilityLabel={`${COPY.submit}, ${COPY.comingSoon}`}>
-          <Text style={styles.disabledButtonText}>{COPY.submit}</Text>
-          <View style={styles.comingSoon}>
-            <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-          </View>
-        </View>
+        <DisabledButton label={COPY.submit} />
 
         <Pressable
           onPress={backToLogin}
@@ -156,39 +146,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 16,
     color: Colors.dark,
-  },
-  disabledButton: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 54,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
   backLink: {
     alignSelf: 'center',

@@ -14,6 +14,7 @@ import {
 
 import { addToCart } from '@/api/cart';
 import { fetchCatalogPage } from '@/api/catalog';
+import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
 import { ProductGrid, type ProductSummary } from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
@@ -199,7 +200,7 @@ export default function ShopScreen() {
         accessibilityLabel={`${COPY.allSellers}, ${COPY.comingSoon}`}>
         <Text style={styles.sellersText}>{COPY.allSellers}</Text>
         <View style={styles.sellersEnd}>
-          <ComingSoon />
+          <ComingSoonBadge />
           <SymbolView
             name={{ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }}
             size={14}
@@ -212,7 +213,7 @@ export default function ShopScreen() {
       <View style={[styles.card, styles.filters]}>
         <View style={styles.filtersHead}>
           <Text style={styles.filtersTitle}>{COPY.filters}</Text>
-          <ComingSoon />
+          <ComingSoonBadge />
         </View>
         <DisabledCheckbox label={COPY.freeShipping} />
         <DisabledCheckbox label={COPY.warrantyEligible} />
@@ -242,7 +243,7 @@ export default function ShopScreen() {
         </View>
       </View>
       <View style={styles.sortNote}>
-        <ComingSoon />
+        <ComingSoonBadge />
       </View>
 
       {list.status === 'loading' ? (
@@ -277,13 +278,6 @@ export default function ShopScreen() {
   );
 }
 
-function ComingSoon() {
-  return (
-    <View style={styles.comingSoon}>
-      <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-    </View>
-  );
-}
 
 /** Live filter checkbox look, permanently disabled for now. */
 function DisabledCheckbox({ label }: { label: string }) {
@@ -400,18 +394,6 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontFamily: Fonts.primary,
     fontSize: 13,
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
     color: Colors.mutedText,
   },
   disabled: {

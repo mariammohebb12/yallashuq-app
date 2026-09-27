@@ -22,6 +22,7 @@ import {
   type CombinationInfo,
 } from '@/api/catalog';
 import { odooUrl } from '@/api/odoo-client';
+import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
@@ -451,9 +452,7 @@ function ProductDetails({
               accessibilityLabel={`${COPY.viewAllReviews(product.ratingCount)}, ${COPY.comingSoon}`}>
               <Text style={styles.viewAllText}>{COPY.viewAllReviews(product.ratingCount)}</Text>
             </View>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-            </View>
+            <ComingSoonBadge />
           </View>
         )}
       </View>
@@ -806,18 +805,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Colors.dark,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
   reviewsCard: {
     padding: 16,

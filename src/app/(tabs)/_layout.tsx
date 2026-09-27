@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 
-import { MishMeshButton } from '@/components/mishmesh-button';
+import { MishMeshAssistant } from '@/components/mishmesh-chat';
 import { useCartQuantity } from '@/state/cart-quantity';
 import { Colors } from '@/theme/theme';
 
@@ -17,7 +17,7 @@ export default function TabLayout() {
       screenLayout={({ children }) => (
         <View style={{ flex: 1 }}>
           {children}
-          <MishMeshButton />
+          <MishMeshAssistant />
         </View>
       )}>
       <Tabs.Screen name="index" options={{ title: 'Home' }} />

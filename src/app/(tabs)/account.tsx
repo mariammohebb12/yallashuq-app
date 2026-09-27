@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchSession, type Session } from '@/api/session';
+import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
@@ -65,6 +66,9 @@ const COPY = {
     // Confirmed from the live "My Account" page's Quotations card (hidden there with d-none); it
     // has a title only.
     quotations: { title: 'Quotations to review' },
+    // Confirmed from the live /my/invoices page's heading. No description: the live account
+    // page's invoice cards say "Follow, download or pay …" and this screen has no payment.
+    invoices: { title: 'Invoices & Bills' },
   },
   editInformation: 'Edit information',
   // PLACEHOLDER COPY (not confirmed anywhere).
@@ -151,6 +155,7 @@ export default function AccountScreen() {
     { key: 'helpdesk', ...COPY.cards.helpdesk, href: '/helpdesk' },
     { key: 'tickets', ...COPY.cards.tickets, href: '/my/tickets' },
     { key: 'quotations', ...COPY.cards.quotations, href: '/my/quotes' },
+    { key: 'invoices', ...COPY.cards.invoices, href: '/my/invoices' },
   ];
   const email = session.login.includes('@') ? session.login : null;
 
@@ -209,9 +214,7 @@ export default function AccountScreen() {
 /** A value the backend doesn't provide (yet) — shown as such, never as a made-up value. */
 function MissingValue() {
   return (
-    <View style={styles.missing}>
-      <Text style={styles.missingText}>{COPY.missing}</Text>
-    </View>
+    <ComingSoonBadge label={COPY.missing} style={styles.missing} />
   );
 }
 
@@ -297,16 +300,6 @@ const styles = StyleSheet.create({
   },
   missing: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  missingText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
   profile: {
     padding: 16,

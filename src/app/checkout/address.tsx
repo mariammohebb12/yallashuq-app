@@ -19,6 +19,7 @@ import {
   type CountryOption,
   type StateOption,
 } from '@/api/signup';
+import { DisabledButton } from '@/components/coming-soon';
 import { FieldLabel, PressableField, REQUIRED_MESSAGE, TextField } from '@/components/form-fields';
 import { FormMessage } from '@/components/form-message';
 import { PickerModal, type PickerItem } from '@/components/picker-modal';
@@ -67,7 +68,6 @@ const COPY = {
   discard: 'Discard',
   save: 'Save address',
   // PLACEHOLDER COPY (not confirmed anywhere).
-  comingSoon: 'Coming soon',
   countryPlaceholder: 'Select country',
   searchCountry: 'Search country...',
   searchState: 'Search state...',
@@ -265,17 +265,7 @@ export default function AddAddressScreen() {
               placeholderTextColor={Colors.placeholderIcon}
             />
             {/* Disabled: map / geolocation picking is out of scope for now (not faked). */}
-            <View
-              style={styles.locationButton}
-              accessible
-              accessibilityRole="button"
-              accessibilityState={{ disabled: true }}
-              accessibilityLabel={`${COPY.location}, ${COPY.comingSoon}`}>
-              <Text style={styles.locationButtonText}>{COPY.location}</Text>
-              <View style={styles.comingSoon}>
-                <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-              </View>
-            </View>
+            <DisabledButton label={COPY.location} style={styles.locationButton} />
           </View>
 
           <TextField
@@ -414,35 +404,7 @@ const styles = StyleSheet.create({
   },
   // Same disabled + "Coming soon" treatment as elsewhere (Shop filters, Order Detail).
   locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 48,
     marginTop: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  locationButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
   buttons: {
     flexDirection: 'row',

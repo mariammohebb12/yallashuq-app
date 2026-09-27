@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { fetchSession } from '@/api/session';
+import { DisabledButton } from '@/components/coming-soon';
 import { FieldLabel, PressableField, TextField } from '@/components/form-fields';
 import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
@@ -41,7 +42,6 @@ const COPY = {
   submit: 'Submit Ticket',
   // PLACEHOLDER COPY (not confirmed anywhere).
   notAvailable: 'Submitting tickets from the app isn’t available yet',
-  comingSoon: 'Coming soon',
 };
 
 export default function HelpdeskScreen() {
@@ -95,17 +95,7 @@ export default function HelpdeskScreen() {
           <PressableField label={COPY.attachment} icon="file" disabled onPress={() => {}} />
 
           {/* Blocked on docs/backend-requests/009-helpdesk-ticket-json.md. Not pressable. */}
-          <View
-            style={styles.disabledButton}
-            accessible
-            accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            accessibilityLabel={`${COPY.submit}, ${COPY.comingSoon}`}>
-            <Text style={styles.disabledButtonText}>{COPY.submit}</Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-            </View>
-          </View>
+          <DisabledButton label={COPY.submit} />
         </View>
       </ScrollView>
     </View>
@@ -153,38 +143,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 15,
     color: Colors.dark,
-  },
-  disabledButton: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
 });

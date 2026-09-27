@@ -3,6 +3,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchSession } from '@/api/session';
+import { DisabledButton } from '@/components/coming-soon';
 import { TextField } from '@/components/form-fields';
 import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
@@ -47,7 +48,6 @@ const COPY = {
   blockList: "Put my email and phone in a block list to make sure I'm never contacted again",
   // PLACEHOLDER COPY (not confirmed anywhere).
   notAvailable: 'Not available in the app yet — these settings can only be changed on the website',
-  comingSoon: 'Coming soon',
   yourLogin: 'your login',
   loginField: 'Login',
 };
@@ -143,23 +143,6 @@ function DisabledPassword({ label }: { label: string }) {
   return <TextField label={label} secureTextEntry editable={false} />;
 }
 
-/** Same disabled "Coming soon" button as Order Detail / the return form. Not pressable. */
-function DisabledButton({ label }: { label: string }) {
-  return (
-    <View
-      style={styles.disabledButton}
-      accessible
-      accessibilityRole="button"
-      accessibilityState={{ disabled: true }}
-      accessibilityLabel={`${label}, ${COPY.comingSoon}`}>
-      <Text style={styles.disabledButtonText}>{label}</Text>
-      <View style={styles.comingSoon}>
-        <Text style={styles.comingSoonText}>{COPY.comingSoon}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   page: {
     flex: 1,
@@ -219,38 +202,5 @@ const styles = StyleSheet.create({
   },
   checkLabel: {
     flex: 1,
-  },
-  disabledButton: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.mutedText,
-  },
-  comingSoon: {
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-  },
-  comingSoonText: {
-    fontFamily: Fonts.primary,
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.mutedText,
   },
 });
