@@ -28,7 +28,8 @@ import { Colors } from '@/theme/theme';
  *
  * NOT BUILT: the empty state — the live page's "no returns" text wasn't seen (the test customer
  * has returns), so no wording is made up for it.
- * NOT LINKED from anywhere yet: the live "My Account" page has no Returns card either.
+ * Linked from the Account tab's "My Returns" row (app-only; the live "My Account" page has no
+ * Returns card).
  */
 
 const COPY = {

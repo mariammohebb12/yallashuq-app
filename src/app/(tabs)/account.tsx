@@ -20,7 +20,8 @@ import LoginScreen from '@/app/login';
  * Signed in: the live page's cards (Continue Shopping, My Orders, Marketplace Documents,
  * Gift & Vouchers, eWallet) and the profile panel.
  * Returns / Warranties have no card on the live page (their pages do exist: /my/returns,
- * /my/warranties), so none here either.
+ * /my/warranties). My Returns has a row here anyway (client request 2026-09-28, app-only), right
+ * after My Orders; Warranties has none.
  *
  * DATA — real: the session (fetchSession: name + login), and address + phone read from the live
  * /my page's profile panel (fetchProfileDetails, TEMPORARY HTML workaround, 2026-09-28). An
@@ -79,6 +80,9 @@ const COPY = {
     // Confirmed from the live /my/invoices page's heading. No description: the live account
     // page's invoice cards say "Follow, download or pay …" and this screen has no payment.
     invoices: { title: 'Invoices & Bills' },
+    // Confirmed from the live /my/returns page's title. No description: the live "My Account"
+    // page has no Returns card to take one from.
+    returns: { title: 'My Returns' },
   },
   editInformation: 'Edit information',
   // From the client's request (2026-09-28). The live site's link says "Log Out" / "Logout".
@@ -182,6 +186,12 @@ export default function AccountScreen() {
         ...COPY.cards.orders,
         href: '/my/orders',
         icon: sym('shippingbox', 'package_2'),
+      },
+      {
+        key: 'returns',
+        ...COPY.cards.returns,
+        href: '/my/returns',
+        icon: sym('arrow.uturn.backward', 'assignment_return'),
       },
       {
         key: 'documents',
