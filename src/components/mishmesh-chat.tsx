@@ -155,9 +155,11 @@ function ChatWindow({
       <View
         style={[
           styles.window,
-          // Live: height min(75vh, 600px). App (client 2026-09-28): flush on the tab bar, not 80px up
-          // above the launcher like the live site; with the keyboard up, just above the keyboard.
-          { height: Math.min(windowHeight * 0.75, 600), marginBottom: keyboardVisible ? 12 : 0 },
+          // App (client 2026-09-28), unlike the live site's fixed height min(75vh, 600px): the window
+          // fits its content and grows with new messages, up to that same size (then the messages
+          // scroll). Flush on the tab bar (live: 80px up, above the launcher); with the keyboard up,
+          // just above the keyboard.
+          { maxHeight: Math.min(windowHeight * 0.75, 600), marginBottom: keyboardVisible ? 12 : 0 },
         ]}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>{COPY.eyebrow}</Text>
@@ -339,8 +341,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  // Content height, shrinking (and scrolling) only when the window reaches its maximum height.
   messages: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
   },
   messagesContent: {
     // Messages stack from the bottom, right above the input (no empty gap under a short chat);
