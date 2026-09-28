@@ -341,6 +341,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
+    // Messages stack from the bottom, right above the input (no empty gap under a short chat);
+    // once they overflow, the list scrolls as before.
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     paddingVertical: 6,
     paddingHorizontal: 10,
     gap: 8,
