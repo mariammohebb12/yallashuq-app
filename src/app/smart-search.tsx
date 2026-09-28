@@ -49,7 +49,8 @@ const COPY = {
   heading: 'Inventory Intelligence',
   readyTitle: 'Ready to Scan',
   loading: 'Analyzing Catalogue...',
-  count: (n: number) => `${n} items discovered`,
+  // Live wording, with "item" for a single result (the live page says "1 items").
+  count: (n: number) => `${n} ${n === 1 ? 'item' : 'items'} discovered`,
   noMatchTitle: 'No Matches Found',
   general: 'General',
   inStock: 'In Stock',
