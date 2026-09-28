@@ -1,9 +1,9 @@
 import { mockOrderDetail } from './orders.mock';
-import type { ReturnDetail, ReturnForm } from '../returns';
+import type { ReturnDetail, ReturnForm, ReturnSummary } from '../returns';
 
 /*
  * ⚠️ TEMPORARY MOCK RETURNS — NOT REAL, DO NOT SHIP ⚠️
- * TODO: replace with a return-detail route once it exists, then delete this file.
+ * TODO: replace with the return list / detail routes once they exist, then delete this file.
  *
  * Copied from staging's real /my/returns/6 and /my/returns/5 (checked 2026-09-27): product, qty,
  * price, refunded, total, pickup date/slot, order, refund method, reason, "-" return reason and
@@ -66,6 +66,54 @@ const RETURNS: ReturnDetail[] = [
 
 export function mockReturnDetail(id: number): ReturnDetail | null {
   return RETURNS.find((entry) => entry.id === id) ?? null;
+}
+
+/**
+ * The live /my/returns table for the staging test customer, row for row and in its order
+ * (checked 2026-09-28): Return #, Order, Pickup Date, Refunded, both status badges.
+ * Only RET/00006 and RET/00005 have sample details above; the other two open "not found".
+ */
+const RETURN_LIST: ReturnSummary[] = [
+  {
+    id: 7,
+    name: 'RET/00007',
+    order: { id: 66, name: 'S00066' },
+    pickupDateFormatted: '09/20/2026',
+    refundedFormatted: '₪ 2,360.00',
+    progress: RECEIVED,
+    decision: SELLER_ACCEPTED,
+  },
+  {
+    id: 6,
+    name: 'RET/00006',
+    order: { id: 63, name: 'S00063' },
+    pickupDateFormatted: '09/17/2026',
+    refundedFormatted: '₪ 2,360.00',
+    progress: RECEIVED,
+    decision: SELLER_ACCEPTED,
+  },
+  {
+    id: 5,
+    name: 'RET/00005',
+    order: { id: 60, name: 'S00060' },
+    pickupDateFormatted: '09/12/2026',
+    refundedFormatted: '₪ 2,360.00',
+    progress: RECEIVED,
+    decision: SELLER_ACCEPTED,
+  },
+  {
+    id: 4,
+    name: 'RET/00004',
+    order: { id: 59, name: 'S00059' },
+    pickupDateFormatted: '09/16/2026',
+    refundedFormatted: '₪ 2,360.00',
+    progress: RECEIVED,
+    decision: SELLER_ACCEPTED,
+  },
+];
+
+export function mockReturnList(): ReturnSummary[] {
+  return RETURN_LIST;
 }
 
 /**

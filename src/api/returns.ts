@@ -1,8 +1,8 @@
-import { mockReturnDetail, mockReturnForm } from './mocks/returns.mock';
+import { mockReturnDetail, mockReturnForm, mockReturnList } from './mocks/returns.mock';
 
 /*
  * ---------------------------------------------------------------------------------------------
- * Return requests (detail).
+ * Return requests (list + detail).
  *
  * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
  * No route returns a return request as JSON: /my/returns and /my/returns/<id> are server-rendered
@@ -67,6 +67,35 @@ export type ReturnResult =
  */
 export async function fetchReturn(id: number): Promise<ReturnResult> {
   return { ok: true, returnRequest: mockReturnDetail(id), isSampleData: true };
+}
+
+/** One row of the live /my/returns table. */
+export type ReturnSummary = {
+  id: number;
+  /** e.g. "RET/00007". */
+  name: string;
+  order: { id: number; name: string };
+  /** e.g. "09/20/2026". */
+  pickupDateFormatted: string;
+  /** Live "Refunded" column, e.g. "₪ 2,360.00". Not proof the money moved. */
+  refundedFormatted: string;
+  /** Grey (dark) badge, e.g. "Received & Verified". */
+  progress: ReturnBadge;
+  /** Green badge, e.g. "Seller Accepted"; null until decided. */
+  decision: ReturnBadge | null;
+};
+
+export type ReturnListResult =
+  | { ok: true; returns: ReturnSummary[]; isSampleData: boolean }
+  | { ok: false; message: string };
+
+/**
+ * TEMPORARY: the staging test customer's real rows as sample data (isSampleData: true). The live
+ * /my/returns page is HTML only (no JSON route; checked 2026-09-28).
+ * TODO: replace with Route 3 (`/my/returns_json`) of docs/backend-requests/006-returns-json.md.
+ */
+export async function fetchReturns(): Promise<ReturnListResult> {
+  return { ok: true, returns: mockReturnList(), isSampleData: true };
 }
 
 /*

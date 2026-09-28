@@ -63,6 +63,14 @@ export const Colors = {
   /** Order number, "Direct Contact" accent and Submit button (not the brand #f28316). */
   supportOrange: '#f3861c',
 
+  // Confirmed from the live site's stylesheet (web.assets_frontend: --secondary / --success, same
+  // on yallashuq.com and staging, checked 2026-09-28): the Bootstrap badge colors of the
+  // /my/returns status pills. Badge text is white (#FFF), weight 600.
+  /** "bg-secondary" pill: the return's progress, e.g. "Received & Verified". */
+  badgeSecondary: '#2D3142',
+  /** "bg-success" pill: the seller's decision, e.g. "Seller Accepted". */
+  badgeSuccess: '#28a745',
+
   // PENDING CONFIRMATION: the login page source has no styled error/success message, so these
   // are taken from another component on the live site (the seller status bar's
   // rejected/approved states). Confirm before relying on them.

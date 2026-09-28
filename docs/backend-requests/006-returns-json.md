@@ -165,11 +165,12 @@ curl -s -b $J -H 'Content-Type: application/json' \
 ## Mobile app side (for reference)
 
 - Screens: `src/app/my/orders/[id]/return.tsx` (new return form — Submit disabled, "Coming
-  soon"), `src/app/my/returns/[id].tsx` (return detail), and the "Previous Return Requests for
-  This Order" list on `src/app/my/orders/[id].tsx`. All show a "Sample data" banner.
+  soon"), `src/app/my/returns/index.tsx` (return list — waits on Route 3, added 2026-09-28),
+  `src/app/my/returns/[id].tsx` (return detail), and the "Previous Return Requests for This
+  Order" list on `src/app/my/orders/[id].tsx`. All show a "Sample data" banner.
 - The app's form currently has only: Order (read-only), Items to Return (+ quantity), Reason for
   Return and Image Upload. The website's other required fields (Return Type, tags attached,
   pickup date and slot) will be added when this route ships.
-- Data: `src/api/returns.ts` (`fetchReturnForm`, `fetchReturn`) and `OrderDetail.returns` in
+- Data: `src/api/returns.ts` (`fetchReturnForm`, `fetchReturns`, `fetchReturn`) and `OrderDetail.returns` in
   `src/api/orders.ts`. The temporary mocks are `src/api/mocks/returns.mock.ts` and the `RETURNS`
   table in `src/api/mocks/orders.mock.ts`, which get deleted when these routes ship.
