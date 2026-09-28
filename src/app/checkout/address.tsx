@@ -30,10 +30,10 @@ import { Colors } from '@/theme/theme';
  * Screen: Add Address — opened by "Add address" on Checkout step 1 (Address & Delivery).
  * Fields in the live form's order, one column, styled like Login/Signup (shared form-fields).
  *
- * ⚠️ NOT SAVED ANYWHERE REAL ⚠️
- * "Save address" adds the address to the in-memory mock list on the Delivery step
- * (saveAddress in src/api/checkout.ts) and goes back; it's gone after an app reload. No JSON route
- * for saving addresses is confirmed yet (the live form posts HTML to /shop/address).
+ * "Save address" saves for real through the live checkout form route /shop/address/submit
+ * (saveAddress in src/api/checkout.ts — details and limits there): it needs a cart, and the new
+ * address also becomes the cart's delivery address on the backend. The Delivery step's address
+ * list is still sample data, so the saved address doesn't show up there yet (#019).
  *
  * Real data: the Country list (with Odoo ids) and the State/Province list come from the same
  * backend sources the signup screens use (the signup page's country list, and the JSON route
@@ -43,9 +43,10 @@ import { Colors } from '@/theme/theme';
  * and the "Location" button is disabled ("Coming soon") — map / geolocation picking is out of
  * scope for now.
  *
- * Required fields (PLACEHOLDER VALIDATION, standard Odoo checkout rules, not confirmed on the live
- * form): full name, email, phone (more than the prefix), street, city, country; State/Province
- * only when the country has states.
+ * Required fields, checked here before sending: full name, phone (more than the prefix), street,
+ * city, country — what staging rejects when all fields are empty (2026-09-28). Anything else
+ * (e.g. an invalid email, a required state or zip) comes back from the backend: its fields get a
+ * red border ("This field is required." when empty) and its message is shown above the buttons.
  */
 
 const COPY = {
@@ -77,7 +78,19 @@ const COPY = {
 const DEFAULT_COUNTRY_NAME = 'Israel';
 const PHONE_PREFIX = '+972'; // Pre-filled like the live form.
 
-type FieldKey = 'name' | 'email' | 'phone' | 'street' | 'city' | 'country' | 'state';
+type FieldKey = 'name' | 'email' | 'phone' | 'street' | 'city' | 'zip' | 'country' | 'state';
+
+/** Backend field name → form field. */
+const BACKEND_FIELDS: Record<string, FieldKey> = {
+  name: 'name',
+  email: 'email',
+  phone: 'phone',
+  street: 'street',
+  city: 'city',
+  zip: 'zip',
+  country_id: 'country',
+  state_id: 'state',
+};
 
 export default function AddAddressScreen() {
   const [name, setName] = useState('');
@@ -96,7 +109,8 @@ export default function AddAddressScreen() {
   const [stateId, setStateId] = useState<string>();
   const [openPicker, setOpenPicker] = useState<'country' | 'state' | null>(null);
 
-  const [missing, setMissing] = useState<Partial<Record<FieldKey, boolean>>>({});
+  // Field → error text ('' = red border only; the message is shown above the buttons).
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
 
@@ -149,13 +163,21 @@ export default function AddAddressScreen() {
   );
 
   function errorFor(field: FieldKey) {
-    return missing[field] ? REQUIRED_MESSAGE : undefined;
+    return fieldErrors[field];
+  }
+
+  function clearError(...fields: FieldKey[]) {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      fields.forEach((field) => delete next[field]);
+      return next;
+    });
   }
 
   function onChange(field: FieldKey, setter: (value: string) => void) {
     return (value: string) => {
       setter(value);
-      setMissing((current) => ({ ...current, [field]: false }));
+      clearError(field);
     };
   }
 
@@ -166,48 +188,59 @@ export default function AddAddressScreen() {
       setStates([]);
       setStateId(undefined);
     }
-    setMissing((current) => ({ ...current, country: false, state: false }));
+    clearError('country', 'state');
   }
 
   function selectState(id: string) {
     setOpenPicker(null);
     setStateId(id);
-    setMissing((current) => ({ ...current, state: false }));
+    clearError('state');
   }
 
   async function handleSave() {
-    const check: Record<FieldKey, boolean> = {
-      name: name.trim() === '',
-      email: email.trim() === '',
-      phone: phone.trim() === '' || phone.trim() === PHONE_PREFIX,
-      street: street.trim() === '',
-      city: city.trim() === '',
-      country: selectedCountry === undefined,
-      state: states.length > 0 && selectedState === undefined,
+    const values: Record<FieldKey, string> = {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim() === PHONE_PREFIX ? '' : phone.trim(),
+      street: street.trim(),
+      city: city.trim(),
+      zip: zip.trim(),
+      country: selectedCountry?.id ?? '',
+      state: selectedState?.id ?? '',
     };
-    setMissing(check);
-    if (Object.values(check).some(Boolean)) {
+    const required: FieldKey[] = ['name', 'phone', 'street', 'city', 'country'];
+    const missing = required.filter((field) => values[field] === '');
+    setFieldErrors(Object.fromEntries(missing.map((field) => [field, REQUIRED_MESSAGE])));
+    setErrorMessage(undefined);
+    if (missing.length > 0) {
       return;
     }
     setSaving(true);
-    setErrorMessage(undefined);
     const result = await saveAddress({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      street: street.trim(),
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      street: values.street,
       street2: street2.trim(),
-      city: city.trim(),
-      zip: zip.trim(),
-      region: selectedState?.name ?? '',
-      country: selectedCountry!.name,
+      city: values.city,
+      zip: values.zip,
+      countryId: values.country,
+      stateId: selectedState?.id,
     });
     setSaving(false);
     if (result.ok) {
-      router.back(); // The Delivery step reloads its list when it's shown again.
-    } else {
-      setErrorMessage(result.message);
+      router.back();
+      return;
     }
+    const flagged = result.invalidFields
+      .map((backendName) => BACKEND_FIELDS[backendName])
+      .filter((field): field is FieldKey => field !== undefined);
+    setFieldErrors(
+      Object.fromEntries(
+        flagged.map((field) => [field, values[field] === '' ? REQUIRED_MESSAGE : ''])
+      )
+    );
+    setErrorMessage(result.message);
   }
 
   return (
@@ -285,9 +318,10 @@ export default function AddAddressScreen() {
           <TextField
             label={COPY.zip}
             value={zip}
-            onChangeText={setZip}
+            onChangeText={onChange('zip', setZip)}
             autoComplete="postal-code"
             textContentType="postalCode"
+            error={errorFor('zip')}
           />
           <PressableField
             label={COPY.country}

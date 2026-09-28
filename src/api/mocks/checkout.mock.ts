@@ -9,8 +9,8 @@ import type { CheckoutAddress, DeliveryMethod, NewAddress } from '../checkout';
  * apartment/unit, city, region, postal code, country. All values are made up (NOT the test
  * customer's real address). The order summary is NOT mocked here: it comes from the Cart's data.
  *
- * "Save address" (Add Address screen) appends to this in-memory list only — nothing is saved
- * anywhere real, and the list resets when the app reloads.
+ * "Save address" (Add Address screen) now saves for real (saveAddress in ../checkout.ts) and no
+ * longer appends here, so a saved address doesn't appear in this list. mockAddAddress is unused.
  */
 
 let addresses: CheckoutAddress[] = [

@@ -1,5 +1,8 @@
 import { fetchCartSummary, type CartSummary } from './cart';
-import { MOCK_DELIVERY_METHOD_NAME, mockAddAddress, mockAddresses } from './mocks/checkout.mock';
+import { extractForm, extractHiddenFields } from './html-form';
+import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
+import { MOCK_DELIVERY_METHOD_NAME, mockAddresses } from './mocks/checkout.mock';
+import { odooRequest } from './odoo-client';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -75,13 +78,98 @@ export async function fetchCheckout(): Promise<CheckoutResult> {
   };
 }
 
-/**
- * TEMPORARY: adds the address to the in-memory mock list only (nothing is saved anywhere real;
- * it's gone after an app reload). No JSON route for saving addresses is confirmed yet — the live
- * form posts HTML to /shop/address.
+/*
+ * Add Address: the live checkout form, submitted the way the website's own script does.
+ *
+ * TEMPORARY / WORKAROUND FOR A MISSING JSON ADDRESS ROUTE (see
+ * docs/backend-requests/019-address-book-missing.md). Checked on staging 2026-09-28:
+ * - GET /shop/address?address_type=delivery renders the form (class "checkout_autoformat") with
+ *   hidden fields csrf_token, address_type, required_fields, delivery_latitude/longitude. It only
+ *   works while the customer has a cart; without one it redirects to /shop.
+ * - POST /shop/address/submit (form-encoded, csrf_token required — without it: 400) replies with
+ *   JSON: {"successUrl": "/shop/checkout"} when saved, or
+ *   {"invalid_fields": [...], "messages": [...]} (e.g. all empty → name, phone, street,
+ *   country_id, city + "Some required fields are empty.").
+ * - Side effect (standard Odoo checkout): the new delivery address also becomes the cart's
+ *   delivery address on the backend.
+ * The Delivery step's address list is still sample data (fetchCheckout above), so a saved
+ * address doesn't appear in it yet.
  */
-export async function saveAddress(
-  address: NewAddress
-): Promise<{ ok: true; address: CheckoutAddress } | { ok: false; message: string }> {
-  return { ok: true, address: mockAddAddress(address) };
+
+const ADDRESS_FORM_PATH = '/shop/address?address_type=delivery';
+const ADDRESS_SUBMIT_PATH = '/shop/address/submit';
+
+// PLACEHOLDER COPY (not confirmed anywhere): the backend refused because there's no cart.
+const NO_CART_MESSAGE = 'Add a product to your cart before adding an address.';
+
+/** What the Add Address form sends (Odoo ids for country and state). */
+export type AddressInput = {
+  name: string;
+  email: string;
+  phone: string;
+  street: string;
+  /** Apartment / unit; "" if none. */
+  street2: string;
+  city: string;
+  zip: string;
+  countryId: string;
+  /** undefined when the country has no states or none was chosen. */
+  stateId?: string;
+};
+
+export type SaveAddressResult =
+  | { ok: true }
+  /** invalidFields: the backend's field names, e.g. "country_id" (empty if none were named). */
+  | { ok: false; message: string; invalidFields: string[] };
+
+export async function saveAddress(input: AddressInput): Promise<SaveAddressResult> {
+  try {
+    const page = await odooRequest(ADDRESS_FORM_PATH);
+    if (page.location) {
+      return { ok: false, message: NO_CART_MESSAGE, invalidFields: [] };
+    }
+    const form = extractForm(await page.text(), 'checkout_autoformat');
+    const hidden = form ? extractHiddenFields(form) : {};
+    if (!hidden.csrf_token) {
+      return { ok: false, message: UNEXPECTED_RESPONSE_MESSAGE, invalidFields: [] };
+    }
+
+    const response = await odooRequest(ADDRESS_SUBMIT_PATH, {
+      method: 'POST',
+      form: {
+        ...hidden,
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        street: input.street,
+        street2: input.street2,
+        city: input.city,
+        zip: input.zip,
+        country_id: input.countryId,
+        state_id: input.stateId ?? '',
+      },
+    });
+    if (response.status !== 200) {
+      return { ok: false, message: UNEXPECTED_RESPONSE_MESSAGE, invalidFields: [] };
+    }
+    const data = JSON.parse(await response.text()) as {
+      successUrl?: string;
+      redirectUrl?: string;
+      invalid_fields?: string[];
+      messages?: string[];
+    };
+    if (data.successUrl) {
+      return { ok: true };
+    }
+    if (data.redirectUrl) {
+      return { ok: false, message: NO_CART_MESSAGE, invalidFields: [] };
+    }
+    return {
+      ok: false,
+      message: data.messages?.filter(Boolean).join('\n') || UNEXPECTED_RESPONSE_MESSAGE,
+      invalidFields: data.invalid_fields ?? [],
+    };
+  } catch {
+    return { ok: false, message: NETWORK_ERROR_MESSAGE, invalidFields: [] };
+  }
 }
