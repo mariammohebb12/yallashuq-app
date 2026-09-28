@@ -117,8 +117,10 @@ export function MishMeshAssistant() {
 
   return (
     <>
-      {open && <ChatWindow messages={messages} onSend={send} onAttach={attach} onClose={() => setOpen(false)} />}
+      {/* The window is drawn after (above) the launcher: it sits flush on the tab bar, over the
+          launcher's corner, and its own close button closes it. */}
       <MishMeshButton onPress={() => setOpen((o) => !o)} />
+      {open && <ChatWindow messages={messages} onSend={send} onAttach={attach} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -153,9 +155,9 @@ function ChatWindow({
       <View
         style={[
           styles.window,
-          // Live: height min(75vh, 600px), bottom 80px (just above the launcher). With the keyboard
-          // up the launcher is hidden, so the window sits just above the keyboard instead.
-          { height: Math.min(windowHeight * 0.75, 600), marginBottom: keyboardVisible ? 12 : 80 },
+          // Live: height min(75vh, 600px). App (client 2026-09-28): flush on the tab bar, not 80px up
+          // above the launcher like the live site; with the keyboard up, just above the keyboard.
+          { height: Math.min(windowHeight * 0.75, 600), marginBottom: keyboardVisible ? 12 : 0 },
         ]}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>{COPY.eyebrow}</Text>
