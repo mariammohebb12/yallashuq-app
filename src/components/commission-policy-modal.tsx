@@ -103,9 +103,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.dark,
   },
   body: {
@@ -143,9 +142,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.phoneCountryBackground,
   },
   noteText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 14,
-    fontWeight: '600',
     fontStyle: 'italic',
     lineHeight: 22,
     color: Colors.policyText,
@@ -171,18 +169,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.iconButtonBorder,
   },
   closeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
   },
   acceptButton: {
     backgroundColor: Colors.primaryOrange,
   },
   acceptText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.white,
   },
 });

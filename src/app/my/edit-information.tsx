@@ -161,9 +161,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 14,
   },

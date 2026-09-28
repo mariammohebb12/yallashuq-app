@@ -189,7 +189,7 @@ export async function getCookieHeader(requestUrl: string): Promise<string | unde
   return matching.map((c) => `${c.name}=${c.value}`).join('; ');
 }
 
-/** Removes every stored cookie (e.g. for a future logout or account deletion). */
+/** Removes every stored cookie (sign out; later also account deletion). */
 export async function clearCookies(): Promise<void> {
   cookies = [];
   await saveCookies();

@@ -375,9 +375,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   muted: {
@@ -412,9 +411,8 @@ const styles = StyleSheet.create({
   },
   productName: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.sectionHeading,
   },
   qtyRow: {
@@ -446,9 +444,8 @@ const styles = StyleSheet.create({
   stepperText: {
     minWidth: 48,
     textAlign: 'center',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   disabled: {

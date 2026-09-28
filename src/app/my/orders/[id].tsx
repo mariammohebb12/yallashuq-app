@@ -442,9 +442,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   // PENDING CONFIRMATION: uses the app's success colors (see theme.ts).
@@ -463,9 +462,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   paidTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '800',
     color: Colors.successText,
   },
   paidBody: {
@@ -474,9 +472,8 @@ const styles = StyleSheet.create({
     color: Colors.successText,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 4,
   },
@@ -498,9 +495,8 @@ const styles = StyleSheet.create({
   },
   strong: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.sectionHeading,
   },
   deliveryName: {
@@ -526,9 +522,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   link: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -549,9 +544,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   amountValue: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   divider: {
@@ -561,12 +555,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 17,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.dark,
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.primaryOrange,
   },
   emptyConversation: {
@@ -605,9 +599,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryOrange,
   },
   sendText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.white,
   },
   // Same disabled + "Coming soon" treatment as Shop's unfinished filters.
@@ -626,9 +619,8 @@ const styles = StyleSheet.create({
   // Same link style as the order number on My Orders.
   returnName: {
     alignSelf: 'flex-start',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '800',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -642,9 +634,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   returnBadgeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
   },
   // PLACEHOLDER COLORS: live uses Bootstrap bg-success (green), whose theme color isn't in the
   // page source; this reuses the app's existing success tokens.
@@ -664,9 +655,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryOrange,
   },
   returnButtonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

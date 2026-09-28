@@ -14,7 +14,8 @@ import {
   View,
 } from 'react-native';
 
-import { fetchReviewInfo, type ReviewInfo } from '@/api/orders';
+import { fetchReviewInfo, submitReview, type ReviewInfo } from '@/api/orders';
+import { FormMessage } from '@/components/form-message';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
@@ -25,10 +26,11 @@ import { Colors } from '@/theme/theme';
  * can keep or change them; otherwise it starts empty ("Rate Your Experience" / "Submit").
  * Opened by "Edit Review" on the My Orders list.
  *
- * VISUAL ONLY FOR NOW: "Update"/"Submit" just closes the popup; nothing is submitted. The live site saves
- * through the existing JSON route /my/orders/review/submit — to be wired once orders are real
- * (#005; see src/api/orders.ts). The live page's "Please select a star rating." check comes with
- * that step too.
+ * REAL (wired 2026-09-28): opening loads /my/orders/review/info; "Submit"/"Update" saves through
+ * /my/orders/review/submit (see src/api/orders.ts). As on the live site: no star → "Please select
+ * a star rating." and nothing is sent; while saving the button reads "Submitting..."; success
+ * closes the popup (the backend sends no success message — the live page just reloads); a failure
+ * shows the backend's own message.
  */
 
 const COPY = {
@@ -45,7 +47,9 @@ const COPY = {
   // PLACEHOLDER COPY (not confirmed anywhere).
   close: 'Close',
   star: (value: number) => `${value} star${value === 1 ? '' : 's'}`,
-  notFound: "This order's product could not be loaded.",
+  // Confirmed from the live popup's script.
+  selectRating: 'Please select a star rating.',
+  submitting: 'Submitting...',
 };
 
 type Props = {
@@ -68,9 +72,11 @@ export function ReviewModal({ orderId, onClose }: Props) {
 }
 
 function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void }) {
-  const [info, setInfo] = useState<ReviewInfo | null | 'loading'>('loading');
+  const [info, setInfo] = useState<ReviewInfo | 'loading' | { error: string }>('loading');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -78,20 +84,46 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
       if (!active) {
         return;
       }
-      const loaded = result.ok ? result.info : null;
-      setInfo(loaded);
-      // An existing review is shown as-is, for the customer to keep or change.
-      if (loaded) {
-        setRating(loaded.existingRating);
-        setComment(loaded.existingComment);
+      if (!result.ok) {
+        setInfo({ error: result.message }); // The backend's message, e.g. "Unauthorized".
+        return;
       }
+      setInfo(result.info);
+      // An existing review is shown as-is, for the customer to keep or change.
+      setRating(result.info.existingRating);
+      setComment(result.info.existingComment);
     });
     return () => {
       active = false;
     };
   }, [orderId]);
 
-  const isUpdate = info !== 'loading' && info !== null && info.isUpdate;
+  const loaded = info !== 'loading' && !('error' in info) ? info : null;
+  const isUpdate = loaded !== null && loaded.isUpdate;
+
+  async function handleSubmit() {
+    if (!loaded || submitting) {
+      return;
+    }
+    if (rating === 0) {
+      setSubmitError(COPY.selectRating);
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    const result = await submitReview({
+      orderId,
+      productId: loaded.productId,
+      rating,
+      comment,
+    });
+    setSubmitting(false);
+    if (result.ok) {
+      onClose();
+    } else {
+      setSubmitError(result.message);
+    }
+  }
 
   return (
     <View style={styles.card} accessibilityViewIsModal>
@@ -118,27 +150,19 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
           <View style={styles.productSummary}>
             <ActivityIndicator color={Colors.primaryOrange} />
           </View>
-        ) : info === null ? (
+        ) : 'error' in info ? (
           <View style={styles.productSummary}>
-            <Text style={styles.orderDate}>{COPY.notFound}</Text>
+            <Text style={styles.orderDate}>{info.error}</Text>
           </View>
         ) : (
           <View style={styles.productSummary}>
             <View style={styles.productImage}>
-              {info.productImageUrl ? (
-                <Image
-                  source={{ uri: info.productImageUrl }}
-                  style={styles.productImageFill}
-                  contentFit="cover"
-                  accessibilityIgnoresInvertColors
-                />
-              ) : (
-                <SymbolView
-                  name={{ ios: 'photo', android: 'image', web: 'image' }}
-                  size={20}
-                  tintColor={Colors.placeholderIcon}
-                />
-              )}
+              <Image
+                source={{ uri: info.productImageUrl }}
+                style={styles.productImageFill}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors
+              />
             </View>
             <View style={styles.productText}>
               <Text style={styles.productName}>{info.productName}</Text>
@@ -155,7 +179,10 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
               return (
                 <Pressable
                   key={value}
-                  onPress={() => setRating(value)}
+                  onPress={() => {
+                    setRating(value);
+                    setSubmitError(null);
+                  }}
                   hitSlop={4}
                   accessibilityRole="button"
                   accessibilityLabel={COPY.star(value)}
@@ -187,6 +214,8 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
           textAlignVertical="top"
         />
 
+        {submitError && <FormMessage type="error" message={submitError} />}
+
         <View style={styles.buttons}>
           <Pressable
             onPress={onClose}
@@ -194,13 +223,18 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
             style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed]}>
             <Text style={[styles.buttonText, styles.cancelText]}>{COPY.cancel}</Text>
           </Pressable>
-          {/* VISUAL ONLY: closes without submitting (see the header comment). */}
           <Pressable
-            onPress={onClose}
+            onPress={handleSubmit}
+            disabled={!loaded || submitting}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.button, styles.updateButton, pressed && styles.pressed]}>
+            accessibilityState={{ disabled: !loaded || submitting, busy: submitting }}
+            style={({ pressed }) => [
+              styles.button,
+              styles.updateButton,
+              (pressed || !loaded || submitting) && styles.pressed,
+            ]}>
             <Text style={[styles.buttonText, styles.updateText]}>
-              {isUpdate ? COPY.update : COPY.submit}
+              {submitting ? COPY.submitting : isUpdate ? COPY.update : COPY.submit}
             </Text>
           </Pressable>
         </View>
@@ -233,9 +267,8 @@ const styles = StyleSheet.create({
   // Live: 'Playfair Display', #0F172A, 700, 1.5rem.
   title: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 24,
-    fontWeight: '700',
     color: Colors.ratingValue,
   },
   body: {
@@ -274,9 +307,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   productName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.ratingValue,
   },
   orderDate: {
@@ -303,9 +335,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   feedbackLabel: {
-    fontFamily: Fonts.secondary,
+    fontFamily: Fonts.secondaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.mutedText,
     marginBottom: 8,
   },
@@ -336,9 +367,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
   },
   cancelButton: {
     borderWidth: 1,
@@ -348,7 +378,7 @@ const styles = StyleSheet.create({
     color: Colors.cancelText,
   },
   updateButton: {
-    backgroundColor: Colors.reviewLink,
+    backgroundColor: Colors.primaryOrange,
   },
   updateText: {
     color: Colors.white,

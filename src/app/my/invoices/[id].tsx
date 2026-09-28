@@ -216,15 +216,13 @@ const styles = StyleSheet.create({
   },
   invoiceName: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   amount: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 28,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   downloadButton: {
@@ -237,15 +235,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryOrange,
   },
   downloadText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.white,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   message: {
@@ -261,9 +257,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   author: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   body: {

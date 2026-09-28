@@ -146,9 +146,8 @@ export function VerifiedBadge() {
 
 const styles = StyleSheet.create({
   label: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
     marginBottom: 8,
   },
@@ -202,9 +201,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   fieldLinkText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   verifiedBadge: {
@@ -214,9 +212,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   verifiedText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '800',
     color: Colors.verifiedText,
   },
 });

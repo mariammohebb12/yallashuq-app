@@ -11,14 +11,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { addToCart } from '@/api/cart';
 import { fetchCatalogPage, withSectionTag } from '@/api/catalog';
 import { FormMessage } from '@/components/form-message';
-import { ProductGrid, type ProductSummary } from '@/components/product-card';
+import { ProductGrid, ProductRow, type ProductSummary } from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
 import { Colors, HomeGradients } from '@/theme/theme';
@@ -44,14 +43,30 @@ const CATEGORIES: Category[] = [
   { id: 13, name: 'Glass Desks' },
   { id: 14, name: 'Standing Desks' },
 ];
+// Live .sm-cat:nth-child(1..8) gradients, cycled by the category's position.
+function categoryGradient(position: number) {
+  return HomeGradients.categories[position % HomeGradients.categories.length];
+}
+// Shop by Category: exactly 2 rows, scrolled sideways (client request 2026-09-28; the live site
+// shows a static 3-per-row grid on phones). Row-major: first half on row 1, the rest on row 2.
+const CATEGORY_ROWS = [
+  CATEGORIES.slice(0, Math.ceil(CATEGORIES.length / 2)),
+  CATEGORIES.slice(Math.ceil(CATEGORIES.length / 2)),
+];
 // Live hero shows the first four categories as chips.
 const HERO_CHIPS = CATEGORIES.slice(0, 4);
 
 // Home's product sections: the first page of the real catalog (GET /home/catalog/more, see
 // src/api/catalog.ts). On the live site all three sections show the same products and differ only
 // in their badge, so one load feeds all three.
-const CATALOG_PAGES = 1; // TODO(Catalog paging): pagination stays log-only for now.
+const CATALOG_PAGES = 1;
+// TODO(Catalog paging): pagination stays log-only for now.
 const CATALOG_PAGE = 1;
+
+// Page rhythm (client request 2026-09-28, tighter than the live site): one side gutter and one gap
+// between top-level blocks, used by every section.
+const GUTTER = 16;
+const SECTION_GAP = 20;
 
 type CatalogState =
   | { status: 'loading' }
@@ -62,7 +77,10 @@ type Service = {
   title: string;
   subtitle: string;
   icon: SymbolViewProps['name'];
-  gradient: { colors: readonly [string, string, ...string[]]; locations: readonly [number, number, ...number[]] };
+  gradient: {
+    colors: readonly [string, string, ...string[]];
+    locations: readonly [number, number, ...number[]];
+  };
 };
 
 const SERVICES: Service[] = [
@@ -89,16 +107,7 @@ const SERVICES: Service[] = [
 // 135deg / 145deg CSS gradients ≈ top-start to bottom-end.
 const DIAGONAL = { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } } as const;
 
-// Live category grid: 8 columns, 4 at ≤1100px, 3 at ≤640px.
-function categoryColumns(width: number): number {
-  if (width <= 640) {
-    return 3;
-  }
-  return width <= 1100 ? 4 : 8;
-}
-
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' });
 
   useEffect(() => {
@@ -119,22 +128,33 @@ export default function HomeScreen() {
   }, []);
 
   /** A product section's body: spinner, backend error, or the grid with the section's badge. */
-  function productSection(tag: string) {
+  // 'row': one sideways-scrolling row (Flash Deals, Trending Now); 'grid': 2 per row (the full
+  // Explore Products listing). Minimal cards either way (client request 2026-09-28 — the live
+  // site shows one tall card per row below 640px).
+  function productSection(tag: string, layout: 'row' | 'grid') {
     if (catalog.status === 'loading') {
       return <ActivityIndicator style={styles.sectionLoading} color={Colors.primaryOrange} />;
     }
     if (catalog.status === 'error') {
       return <FormMessage type="error" message={catalog.message} />;
     }
-    return (
+    const products = withSectionTag(catalog.products, tag);
+    return layout === 'row' ? (
+      <ProductRow
+        products={products}
+        bleed={GUTTER}
+        onOpen={openProduct}
+        onAddToCart={handleAddToCart}
+      />
+    ) : (
       <ProductGrid
-        products={withSectionTag(catalog.products, tag)}
+        products={products}
+        minColumns={2}
         onOpen={openProduct}
         onAddToCart={handleAddToCart}
       />
     );
   }
-  const categoryWidth = `${100 / categoryColumns(width)}%` as const;
 
   function openProduct(product: ProductSummary) {
     router.push({ pathname: '/product/[id]', params: { id: String(product.id) } });
@@ -268,39 +288,48 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <SectionHead title="Shop by Category" link="View All" onLinkPress={openShop} />
         <Text style={styles.sub}>Browse all categories</Text>
-        <View style={styles.categoryGrid}>
-          {CATEGORIES.map((category, index) => {
-            const gradient = HomeGradients.categories[index % HomeGradients.categories.length];
-            return (
-              <View key={category.id} style={[styles.categoryCell, { width: categoryWidth }]}>
-                <Pressable
-                  onPress={() => openCategory(category)}
-                  accessibilityRole="button"
-                  accessibilityLabel={category.name}>
-                  <LinearGradient
-                    colors={gradient.colors}
-                    locations={gradient.locations}
-                    {...DIAGONAL}
-                    style={styles.category}>
-                    {/* Live categories all use Odoo's placeholder image for now. */}
-                    <View style={styles.categoryImage}>
-                      <SymbolView
-                        name={{ ios: 'photo', android: 'image', web: 'image' }}
-                        size={18}
-                        tintColor={Colors.placeholderIcon}
-                      />
-                    </View>
-                    <View style={styles.categoryNameBox}>
-                      <Text style={styles.categoryName} numberOfLines={2}>
-                        {category.name}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                </Pressable>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroller}
+          contentContainerStyle={styles.categoryScroll}>
+          <View style={styles.categoryRows}>
+            {CATEGORY_ROWS.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.categoryRow}>
+                {row.map((category, index) => (
+                  <Pressable
+                    key={category.id}
+                    onPress={() => openCategory(category)}
+                    accessibilityRole="button"
+                    accessibilityLabel={category.name}>
+                    {/* Live .sm-cat:nth-child pastel gradients, same order as the live grid. */}
+                    <LinearGradient
+                      colors={categoryGradient(rowIndex * CATEGORY_ROWS[0].length + index).colors}
+                      locations={
+                        categoryGradient(rowIndex * CATEGORY_ROWS[0].length + index).locations
+                      }
+                      {...DIAGONAL}
+                      style={styles.category}>
+                      {/* Live categories all use Odoo's placeholder image for now. */}
+                      <View style={styles.categoryImage}>
+                        <SymbolView
+                          name={{ ios: 'photo', android: 'image', web: 'image' }}
+                          size={18}
+                          tintColor={Colors.placeholderIcon}
+                        />
+                      </View>
+                      <View style={styles.categoryNameBox}>
+                        <Text style={styles.categoryName} numberOfLines={2}>
+                          {category.name}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                ))}
               </View>
-            );
-          })}
-        </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {/* ---- Flash Deals ---- */}
@@ -315,14 +344,14 @@ export default function HomeScreen() {
           onLinkPress={openShop}
           titleStyle={styles.flashHeading}
         />
-        {productSection('Hot Sale')}
+        {productSection('Hot Sale', 'row')}
       </LinearGradient>
 
       {/* ---- Trending Now ---- */}
       <View style={styles.section}>
         <SectionHead title="Trending Now" link="Explore" onLinkPress={openShop} />
         <Text style={styles.sub}>Popular this week</Text>
-        {productSection('Top Deal')}
+        {productSection('Top Deal', 'row')}
       </View>
 
       {/* ---- Explore Products (catalog) ---- */}
@@ -339,9 +368,7 @@ export default function HomeScreen() {
             ) : undefined
           }
         />
-        <View style={styles.catalogGrid}>
-          {productSection('Top Deal')}
-        </View>
+        {productSection('Top Deal', 'grid')}
         <Pagination page={CATALOG_PAGE} pageCount={CATALOG_PAGES} />
       </View>
     </ScrollView>
@@ -364,7 +391,9 @@ function SectionHead({
 }) {
   return (
     <View style={styles.head}>
-      <Text style={[styles.headTitle, titleStyle]}>{title}</Text>
+      <Text style={[styles.headTitle, titleStyle]} numberOfLines={1}>
+        {title}
+      </Text>
       {link && (
         <Pressable
           style={styles.headLink}
@@ -418,8 +447,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.pageBackground,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: GUTTER,
+    paddingTop: GUTTER,
     // Clears the floating MishMesh launcher (56px + 16px offset) at the end of the page.
     paddingBottom: 88,
   },
@@ -427,7 +456,7 @@ const styles = StyleSheet.create({
   hero: {
     borderRadius: 22,
     overflow: 'hidden',
-    paddingVertical: 36,
+    paddingVertical: 28,
     paddingHorizontal: 24,
   },
   aiBadge: {
@@ -458,16 +487,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.aiBadgeDot,
   },
   aiBadgeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 10,
-    fontWeight: '700',
     color: Colors.aiBadgeText,
   },
   heroHeading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 35, // 2.2rem at the live ≤991px breakpoint
     lineHeight: 40,
-    fontWeight: '800',
   },
   heroHeadingWhite: {
     color: Colors.white,
@@ -518,21 +545,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   chipText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 11,
-    fontWeight: '600',
     color: Colors.white,
   },
 
   services: {
-    marginTop: 18,
+    marginTop: SECTION_GAP,
     gap: 10,
   },
   service: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingVertical: 20,
+    paddingVertical: 14,
     paddingHorizontal: 22,
     borderRadius: 16,
     borderWidth: 1,
@@ -552,9 +578,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   serviceTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.white,
   },
   serviceSubtitle: {
@@ -565,56 +590,64 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    marginTop: 22,
+    marginTop: SECTION_GAP,
   },
+  // Every section header: bold title (start) + the same link pill (end), one line.
   head: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+    minHeight: 28,
     marginBottom: 10,
   },
   headTitle: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
-    fontSize: 26,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
+    fontSize: 20,
+    lineHeight: 26,
     // Solid stand-in for the live text gradient (#1a1a1a → #444).
     color: Colors.sectionHeading,
   },
   headLink: {
+    height: 28,
+    justifyContent: 'center',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: 'rgba(242,131,22,0.25)',
     backgroundColor: 'rgba(242,131,22,0.06)',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
   headLinkText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   sub: {
-    marginTop: -4,
-    marginBottom: 12,
-    fontFamily: Fonts.primary,
+    marginTop: -8,
+    marginBottom: 10,
+    fontFamily: Fonts.primaryMedium,
     fontSize: 11,
-    fontWeight: '500',
     color: Colors.subtleText,
   },
 
-  categoryGrid: {
+  // Full-bleed strip (cancels the page gutter), content padded back in.
+  categoryScroller: {
+    marginHorizontal: -GUTTER,
+  },
+  categoryScroll: {
+    paddingHorizontal: GUTTER,
+  },
+  categoryRows: {
+    gap: 10, // .sm-cats gap: 10px
+  },
+  categoryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -5, // .sm-cats gap: 10px
-    rowGap: 10,
+    gap: 10,
   },
-  categoryCell: {
-    paddingHorizontal: 5,
-  },
+  // Fixed width: about 3⅓ tiles visible on a phone, so the cut-off 4th shows there's more.
   category: {
+    width: 104,
     alignItems: 'center',
     paddingTop: 14,
     paddingHorizontal: 8,
@@ -639,19 +672,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   categoryName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 11,
-    fontWeight: '700',
     lineHeight: 13,
     textAlign: 'center',
     color: Colors.categoryName,
   },
 
+  // Full-width tinted band (was an inset card): its heading and cards start at the same gutter
+  // as every other section.
   flashSection: {
-    borderRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 18,
-    borderWidth: 1,
+    marginHorizontal: -GUTTER,
+    paddingVertical: 16,
+    paddingHorizontal: GUTTER,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: 'rgba(255,180,210,0.3)',
   },
   flashHeading: {
@@ -662,19 +697,15 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   catalogCount: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryMedium,
     fontSize: 11,
-    fontWeight: '500',
     color: Colors.subtleText,
-  },
-  catalogGrid: {
-    marginTop: 6,
   },
   pagination: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 16,
+    marginTop: 12,
   },
   pageButton: {
     minWidth: 38,
@@ -690,9 +721,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   pageText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.paginationText,
   },
   pageTextActive: {

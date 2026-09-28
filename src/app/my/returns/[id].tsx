@@ -257,9 +257,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 4,
   },
@@ -274,9 +273,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   badgeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
   },
   // PLACEHOLDER COLORS: live uses Bootstrap bg-secondary (grey) / bg-success (green), whose theme
   // colors aren't in the page source; these reuse the app's existing grey / success tokens.
@@ -300,9 +298,8 @@ const styles = StyleSheet.create({
   },
   strong: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.sectionHeading,
   },
   inlineRow: {
@@ -322,9 +319,8 @@ const styles = StyleSheet.create({
     color: Colors.dark,
   },
   link: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -337,15 +333,13 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '800',
     color: Colors.dark,
   },
   totalValue: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   pickupDivider: {

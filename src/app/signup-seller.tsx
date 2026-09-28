@@ -965,9 +965,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 32,
-    fontWeight: '800',
     lineHeight: 38,
     letterSpacing: -0.64,
     color: Colors.dark,
@@ -1023,17 +1022,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   dialCode: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '800',
     color: Colors.dark,
   },
   phoneInput: {
     flex: 1,
     height: '100%',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 14,
-    fontWeight: '600',
     color: Colors.dark,
   },
   photoRow: {
@@ -1102,9 +1099,8 @@ const styles = StyleSheet.create({
   },
   termsText: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     lineHeight: 20,
     color: Colors.dark,
   },
@@ -1131,9 +1127,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   footer: {
@@ -1149,9 +1144,8 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   footerLink: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   dateBackdrop: {
@@ -1171,9 +1165,8 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   dateDone: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
 });

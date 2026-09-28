@@ -1,8 +1,10 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { signOut } from '@/api/auth';
+import { fetchProfileDetails, type ProfileDetails } from '@/api/profile';
 import { fetchSession, type Session } from '@/api/session';
 import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
@@ -20,14 +22,22 @@ import LoginScreen from '@/app/login';
  * Returns / Warranties have no card on the live page (their pages do exist: /my/returns,
  * /my/warranties), so none here either.
  *
- * DATA — only the session is real so far (fetchSession: name + login). MISSING, shown with a
- * clearly marked "Not available yet" instead of a value: address, phone, gift-card count and
- * eWallet balance. Requested in docs/backend-requests/004-account-summary-json.md (still to be
+ * DATA — real: the session (fetchSession: name + login), and address + phone read from the live
+ * /my page's profile panel (fetchProfileDetails, TEMPORARY HTML workaround, 2026-09-28). An
+ * address/phone the customer hasn't saved shows as a grey italic empty-field placeholder (client
+ * request 2026-09-28); if the page can't be read, "Not available yet". MISSING, shown with a
+ * clearly marked "Not available yet" instead of a value: gift-card count and eWallet balance. Requested in docs/backend-requests/004-account-summary-json.md (still to be
  * checked against the staging test account — /my/counters may already cover the last two).
  * Email: the login is shown as the email only when it is one (customers can sign in with a phone).
  *
  * Phone layout (confirmed 2026-09-25): the desktop page's side-by-side columns are reflowed to a
- * single column — profile panel at the top, then the 5 cards stacked one per row.
+ * single column — profile panel at the top, then the links below it.
+ * Links (client request 2026-09-28, app-only design): settings-style rows — icon, title (+ the
+ * live description, when there is one), the row's value if it has one, chevron — grouped into
+ * rounded white cards with thin dividers. Groups are consecutive runs of the existing order (no
+ * reordering, no group headings); the icons are standard SF Symbols / Material icons chosen here.
+ * Sign Out (client request 2026-09-28): the last row, on its own; it's an action, so no chevron.
+ * It ends the session (src/api/auth.ts signOut) and the tab then shows the Login screen.
  */
 
 const COPY = {
@@ -71,21 +81,28 @@ const COPY = {
     invoices: { title: 'Invoices & Bills' },
   },
   editInformation: 'Edit information',
+  // From the client's request (2026-09-28). The live site's link says "Log Out" / "Logout".
+  signOut: 'Sign Out',
   // PLACEHOLDER COPY (not confirmed anywhere).
   address: 'Address',
   phone: 'Phone',
   email: 'Email',
   missing: 'Not available yet',
+  // From the client's request (2026-09-28): shown only when the customer has none saved.
+  addAddress: 'Add your address',
+  addPhone: 'Add your phone number',
 };
 
 type ScreenState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'signedOut' }
-  | { status: 'signedIn'; session: Session };
+  /** `details` null = couldn't read the address/phone (shown as "Not available yet"). */
+  | { status: 'signedIn'; session: Session; details: ProfileDetails | null };
 
 type AccountCard = {
   key: string;
+  icon: SymbolViewProps['name'];
   title: string;
   /** Omitted when the live site has no confirmed description for this link. */
   description?: string;
@@ -96,18 +113,23 @@ type AccountCard = {
 
 export default function AccountScreen() {
   const [state, setState] = useState<ScreenState>({ status: 'loading' });
+  const [signingOut, setSigningOut] = useState(false);
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
     const request = ++requestId.current;
-    const result = await fetchSession();
+    const [result, detailsResult] = await Promise.all([fetchSession(), fetchProfileDetails()]);
     if (request !== requestId.current) {
       return;
     }
     if (!result.ok) {
       setState({ status: 'error', message: result.message });
     } else if (result.session) {
-      setState({ status: 'signedIn', session: result.session });
+      setState({
+        status: 'signedIn',
+        session: result.session,
+        details: detailsResult.ok ? detailsResult.details : null,
+      });
     } else {
       setState({ status: 'signedOut' });
     }
@@ -122,6 +144,16 @@ export default function AccountScreen() {
       };
     }, [load])
   );
+
+  async function handleSignOut() {
+    if (signingOut) {
+      return; // One request at a time.
+    }
+    setSigningOut(true);
+    await signOut();
+    setSigningOut(false);
+    await load(); // Now signed out: the tab shows the Login screen.
+  }
 
   if (state.status === 'loading') {
     return (
@@ -141,21 +173,71 @@ export default function AccountScreen() {
     );
   }
 
-  const { session } = state;
-  const cards: AccountCard[] = [
-    { key: 'shop', ...COPY.cards.shop, href: '/shop' },
-    { key: 'orders', ...COPY.cards.orders, href: '/my/orders' },
-    { key: 'documents', ...COPY.cards.documents, href: '/my/documents' },
-    // MISSING: gift-card count (live "0 Cards") — no JSON source confirmed yet.
-    { key: 'giftCards', ...COPY.cards.giftCards, href: '/my/gift-cards', badge: null },
-    // MISSING: eWallet balance (live "₪0.00") — no JSON source confirmed yet.
-    { key: 'wallet', ...COPY.cards.wallet, href: '/my/wallet', badge: null },
-    { key: 'security', ...COPY.cards.security, href: '/my/security' },
-    { key: 'contact', ...COPY.cards.contact, href: '/contactus' },
-    { key: 'helpdesk', ...COPY.cards.helpdesk, href: '/helpdesk' },
-    { key: 'tickets', ...COPY.cards.tickets, href: '/my/tickets' },
-    { key: 'quotations', ...COPY.cards.quotations, href: '/my/quotes' },
-    { key: 'invoices', ...COPY.cards.invoices, href: '/my/invoices' },
+  const { session, details } = state;
+  const groups: AccountCard[][] = [
+    [
+      { key: 'shop', ...COPY.cards.shop, href: '/shop', icon: sym('bag', 'shopping_bag') },
+      {
+        key: 'orders',
+        ...COPY.cards.orders,
+        href: '/my/orders',
+        icon: sym('shippingbox', 'package_2'),
+      },
+      {
+        key: 'documents',
+        ...COPY.cards.documents,
+        href: '/my/documents',
+        icon: sym('doc.text', 'description'),
+      },
+    ],
+    [
+      // MISSING: gift-card count (live "0 Cards") — no JSON source confirmed yet.
+      {
+        key: 'giftCards',
+        ...COPY.cards.giftCards,
+        href: '/my/gift-cards',
+        icon: sym('giftcard', 'redeem'),
+        badge: null,
+      },
+      // MISSING: eWallet balance (live "₪0.00") — no JSON source confirmed yet.
+      {
+        key: 'wallet',
+        ...COPY.cards.wallet,
+        href: '/my/wallet',
+        icon: sym('wallet.pass', 'account_balance_wallet'),
+        badge: null,
+      },
+    ],
+    [{ key: 'security', ...COPY.cards.security, href: '/my/security', icon: sym('lock', 'lock') }],
+    [
+      { key: 'contact', ...COPY.cards.contact, href: '/contactus', icon: sym('envelope', 'mail') },
+      {
+        key: 'helpdesk',
+        ...COPY.cards.helpdesk,
+        href: '/helpdesk',
+        icon: sym('lifepreserver', 'support'),
+      },
+      {
+        key: 'tickets',
+        ...COPY.cards.tickets,
+        href: '/my/tickets',
+        icon: sym('ticket', 'confirmation_number'),
+      },
+    ],
+    [
+      {
+        key: 'quotations',
+        ...COPY.cards.quotations,
+        href: '/my/quotes',
+        icon: sym('doc.plaintext', 'request_quote'),
+      },
+      {
+        key: 'invoices',
+        ...COPY.cards.invoices,
+        href: '/my/invoices',
+        icon: sym('list.bullet.rectangle', 'receipt_long'),
+      },
+    ],
   ];
   const email = session.login.includes('@') ? session.login : null;
 
@@ -171,9 +253,18 @@ export default function AccountScreen() {
         </View>
         <Text style={styles.profileName}>{session.name}</Text>
 
-        {/* MISSING: address and phone aren't in the session data. */}
-        <ProfileRow icon="address" label={COPY.address} value={null} />
-        <ProfileRow icon="phone" label={COPY.phone} value={null} />
+        <ProfileRow
+          icon="address"
+          label={COPY.address}
+          value={details && details.addressLines.join('\n')}
+          emptyText={COPY.addAddress}
+        />
+        <ProfileRow
+          icon="phone"
+          label={COPY.phone}
+          value={details && (details.phone ?? '')}
+          emptyText={COPY.addPhone}
+        />
         <ProfileRow icon="email" label={COPY.email} value={email} />
 
         <Pressable
@@ -184,51 +275,102 @@ export default function AccountScreen() {
           <Text style={styles.editLinkText}>{COPY.editInformation}</Text>
         </Pressable>
       </View>
-      <View style={styles.grid}>
-        {cards.map((card) => (
-          <View key={card.key}>
+      {groups.map((group) => (
+        <View key={group[0].key} style={[styles.card, styles.group]}>
+          {group.map((card, index) => (
             <Pressable
+              key={card.key}
               onPress={() => router.push(card.href)}
-              style={({ pressed }) => [styles.card, styles.linkCard, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               accessibilityRole="button"
-              accessibilityLabel={card.description ? `${card.title}. ${card.description}` : card.title}>
-              <Text style={styles.cardTitle}>{card.title}</Text>
-              {card.description ? (
-                <Text style={styles.cardDescription}>{card.description}</Text>
-              ) : null}
+              accessibilityLabel={
+                card.description ? `${card.title}. ${card.description}` : card.title
+              }>
+              {index > 0 && <View style={styles.divider} />}
+              <SymbolView
+                name={card.icon}
+                size={20}
+                tintColor={Colors.primaryOrange}
+                style={styles.rowIcon}
+              />
+              <View style={styles.rowText}>
+                <Text style={styles.cardTitle}>{card.title}</Text>
+                {card.description ? (
+                  <Text style={styles.cardDescription}>{card.description}</Text>
+                ) : null}
+              </View>
               {card.badge !== undefined &&
                 (card.badge === null ? (
                   <MissingValue />
                 ) : (
                   <Text style={styles.badge}>{card.badge}</Text>
                 ))}
+              {/* "forward" flips to point left in Arabic/Hebrew. */}
+              <SymbolView
+                name={{ ios: 'chevron.forward', android: 'chevron_right', web: 'chevron_right' }}
+                size={13}
+                weight="semibold"
+                tintColor={Colors.placeholderIcon}
+              />
             </Pressable>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ))}
 
+      <View style={[styles.card, styles.group]}>
+        <Pressable
+          onPress={handleSignOut}
+          disabled={signingOut}
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: signingOut, busy: signingOut }}>
+          <SymbolView
+            name={sym('rectangle.portrait.and.arrow.right', 'logout')}
+            size={20}
+            tintColor={Colors.primaryOrange}
+            style={styles.rowIcon}
+          />
+          <View style={styles.rowText}>
+            <Text style={styles.cardTitle}>{COPY.signOut}</Text>
+          </View>
+          {signingOut && <ActivityIndicator color={Colors.primaryOrange} />}
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
 
-/** A value the backend doesn't provide (yet) — shown as such, never as a made-up value. */
-function MissingValue() {
-  return (
-    <ComingSoonBadge label={COPY.missing} style={styles.missing} />
-  );
+function sym(ios: string, android: string): SymbolViewProps['name'] {
+  return { ios, android, web: android } as SymbolViewProps['name'];
 }
 
+/** A value the backend doesn't provide (yet) — shown as such, never as a made-up value. */
+function MissingValue() {
+  return <ComingSoonBadge label={COPY.missing} style={styles.missing} />;
+}
+
+/**
+ * `value`: the text; '' = the customer has none saved (shows `emptyText` as a grey italic
+ * empty-field placeholder — display only, tapping does nothing); null = unknown (couldn't be read).
+ */
 function ProfileRow({
   icon,
   label,
   value,
+  emptyText,
 }: {
   icon: 'address' | 'phone' | 'email';
   label: string;
   value: string | null;
+  emptyText?: string;
 }) {
+  const empty = value === '' && emptyText !== undefined;
   return (
-    <View style={styles.profileRow} accessible accessibilityLabel={`${label}: ${value ?? COPY.missing}`}>
+    <View
+      // Icon at the top of a multi-line address, as on the live page.
+      style={[styles.profileRow, !empty && styles.profileRowTop]}
+      accessible
+      accessibilityLabel={`${label}: ${empty ? emptyText : value || COPY.missing}`}>
       <SymbolView
         name={
           icon === 'address'
@@ -239,8 +381,19 @@ function ProfileRow({
         }
         size={15}
         tintColor={Colors.helperText}
+        style={!empty && styles.profileIconTop}
       />
-      {value !== null ? <Text style={styles.profileValue}>{value}</Text> : <MissingValue />}
+      {empty ? (
+        <View style={styles.emptyField}>
+          <Text style={styles.emptyFieldText} numberOfLines={1}>
+            {emptyText}
+          </Text>
+        </View>
+      ) : value ? (
+        <Text style={styles.profileValue}>{value}</Text>
+      ) : (
+        <MissingValue />
+      )}
     </View>
   );
 }
@@ -260,10 +413,10 @@ const styles = StyleSheet.create({
     // Clears the floating MishMesh launcher (56px + 16px offset) at the end of the page.
     paddingBottom: 88,
   },
-  // Single column of cards below the profile.
-  grid: {
+  // One rounded card per group of rows, below the profile.
+  group: {
     marginTop: 14,
-    gap: 10,
+    overflow: 'hidden',
   },
   card: {
     backgroundColor: Colors.white,
@@ -274,15 +427,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
-  linkCard: {
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 52,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  // Thin divider between rows, inset to start after the icon (14 padding + 20 icon + 12 gap).
+  divider: {
+    position: 'absolute',
+    top: 0,
+    start: 46,
+    end: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.inputBorder,
+  },
+  rowPressed: {
+    backgroundColor: Colors.pageBackground,
+  },
+  rowIcon: {
+    width: 20,
+    height: 20,
+  },
+  rowText: {
     flex: 1,
-    padding: 14,
-    gap: 6,
+    gap: 2,
   },
   cardTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   cardDescription: {
@@ -292,15 +467,11 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   badge: {
-    alignSelf: 'flex-start',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
-  missing: {
-    alignSelf: 'flex-start',
-  },
+  missing: {},
   profile: {
     padding: 16,
     alignItems: 'center',
@@ -317,9 +488,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     textAlign: 'center',
   },
@@ -328,6 +498,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  profileRowTop: {
+    alignItems: 'flex-start',
+  },
+  // Centres the 15px icon on the first 14px text line.
+  profileIconTop: {
+    marginTop: 2,
+  },
+  // Looks like an empty input: light box, grey italic placeholder (like the search bar's).
+  emptyField: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.inputBorder,
+    backgroundColor: Colors.pageBackground,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  emptyFieldText: {
+    fontFamily: Fonts.primaryItalic,
+    fontSize: 14,
+    color: Colors.placeholderIcon,
   },
   profileValue: {
     flexShrink: 1,
@@ -339,9 +531,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   editLinkText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },

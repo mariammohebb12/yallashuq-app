@@ -222,18 +222,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   balanceLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: Colors.mutedText,
     marginBottom: 6,
   },
   balanceAmount: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 38,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   balanceButtons: {
@@ -259,9 +257,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   pillText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
   },
   pillTextFilled: {
     color: Colors.white,
@@ -270,9 +267,8 @@ const styles = StyleSheet.create({
     color: Colors.primaryOrange,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 22,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginTop: 28,
     marginBottom: 12,
@@ -303,9 +299,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   smallButtonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
   },
   clearButton: {
     borderWidth: 1,
@@ -323,9 +318,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
   },
   list: {
@@ -351,9 +345,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   description: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.dark,
   },
   date: {
@@ -366,9 +359,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   amount: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.dark,
   },
   amountCredit: {
@@ -381,9 +373,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.activeRowBackground,
   },
   typeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.chipText,
   },
   pressed: {

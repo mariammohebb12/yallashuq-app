@@ -137,9 +137,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 18,
-    fontWeight: '800',
     color: Colors.dark,
   },
   // Search box and rows follow the live site's country dropdown styles.
@@ -185,7 +184,7 @@ const styles = StyleSheet.create({
   },
   rowLabelSelected: {
     color: Colors.primaryOrange,
-    fontWeight: '700',
+    fontFamily: Fonts.primaryBold,
   },
   rowDetail: {
     fontFamily: Fonts.primary,

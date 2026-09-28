@@ -303,21 +303,19 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   eyebrow: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 10,
     letterSpacing: 0.8,
-    fontWeight: '800',
     color: C.eyebrow,
     textAlign: 'left',
   },
   title: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     marginTop: 8,
     // Keeps the heading clear of the close button.
     marginEnd: 36,
     fontSize: 22,
     lineHeight: 23,
-    fontWeight: '800',
     color: Colors.dark,
     textAlign: 'left',
   },
@@ -388,7 +386,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   bold: {
-    fontWeight: '700',
+    fontFamily: Fonts.primaryBold,
   },
   introParagraph: {
     marginBottom: 12,

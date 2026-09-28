@@ -384,16 +384,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sampleBannerText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     lineHeight: 18,
     color: Colors.dark,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 14,
   },
@@ -405,9 +403,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
   },
   groups: {
@@ -432,16 +429,14 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.inputBorder,
   },
   sellerLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: Colors.helperText,
   },
   sellerName: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.dark,
   },
   line: {
@@ -472,9 +467,8 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   lineName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     lineHeight: 20,
     color: Colors.sectionHeading,
   },
@@ -513,9 +507,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepperText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   removeButton: {
@@ -531,9 +524,8 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   lineTotal: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   groupFooter: {
@@ -541,9 +533,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   freeHint: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: Colors.primaryOrange,
   },
   summary: {
@@ -562,9 +553,8 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   amountValue: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   divider: {
@@ -574,12 +564,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 17,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.dark,
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.primaryOrange,
   },
   checkoutPressable: {
@@ -592,9 +582,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkoutText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

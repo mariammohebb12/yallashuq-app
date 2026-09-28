@@ -118,9 +118,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   muted: {
@@ -143,9 +142,8 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   amountValue: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   divider: {
@@ -155,12 +153,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 17,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.dark,
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: Fonts.primaryBold,
     color: Colors.primaryOrange,
   },
   discountRow: {
@@ -189,9 +187,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   applyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   sellerBox: {
@@ -203,9 +200,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sellerBoxTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '800',
     color: Colors.dark,
   },
   sellerRow: {
@@ -218,9 +214,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sellerName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   freeNote: {
@@ -229,9 +224,8 @@ const styles = StyleSheet.create({
     color: Colors.verifiedText,
   },
   sellerCharge: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '800',
     color: Colors.dark,
   },
   freeCharge: {

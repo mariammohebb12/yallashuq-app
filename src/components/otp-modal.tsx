@@ -207,9 +207,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.dark,
   },
   body: {
@@ -220,7 +219,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   target: {
-    fontWeight: '700',
+    fontFamily: Fonts.primaryBold,
     color: Colors.dark,
   },
   codeInput: {
@@ -231,9 +230,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.inputBorder,
     borderRadius: 12,
     textAlign: 'center',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 24,
-    fontWeight: '700',
     letterSpacing: 4,
     color: Colors.dark,
     marginBottom: 24,
@@ -247,9 +245,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   timer: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.mutedText,
     textAlign: 'center',
     marginBottom: 16,
@@ -268,9 +265,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   verifyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   resend: {
@@ -281,9 +277,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   resendText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
 });

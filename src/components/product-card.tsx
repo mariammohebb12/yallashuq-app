@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -12,12 +12,21 @@ import {
 } from 'react-native';
 
 import { Fonts } from '@/theme/fonts';
-import { Colors, HomeGradients } from '@/theme/theme';
+import { Colors } from '@/theme/theme';
 
 /**
- * Product card and grid, styled like the live homepage's `.sm-product` / `.sm-products`.
- * Display only: prices and ratings are shown exactly as given (the backend formats and computes
- * them); nothing is calculated here.
+ * Product card, grid and horizontal row.
+ *
+ * Layout (client requests 2026-09-28, app-only design — the live `.sm-product` card is taller,
+ * with a full-width "Add to Cart" button): a clean white card, structure inspired by noon but in
+ * YallaShuq's own colors and fonts. Full-width image with the section badge (top-start) and a
+ * small wishlist heart (top-end, visual only); below, packed tight: the name (2 lines max), the
+ * rating row (only when the product has reviews), the price (with the struck-through original
+ * price and a green "-N%" when discounted), a muted one-line "Sold by", and a footer with the
+ * one-line free-shipping pill and the round "+" add-to-cart button (bottom-end, inside the card).
+ *
+ * Display only: prices, discount and rating are shown exactly as the backend gives them; nothing
+ * is calculated here. Not shown on this card: the small chips (still in `ProductSummary`).
  */
 
 export type ProductSummary = {
@@ -31,31 +40,40 @@ export type ProductSummary = {
   priceLabel: string;
   /** Crossed-out price shown next to `priceLabel` when discounted. */
   originalPriceLabel?: string;
+  /** Percent off, as the backend gives it (`discount_pct`), shown as "-N%" when discounted. */
+  discountPct?: number;
   /** Average rating 0–5 and number of reviews (the rating row is hidden at 0 reviews). */
   rating: number;
   ratingCount: number;
-  /** Badge on the image, e.g. "Hot Sale" / "Top Deal" / "SALE -20%". */
+  /** Badge on the image: the section's real tag, e.g. "Hot Sale" / "Top Deal". */
   tag?: string;
-  /** 'sale' = the live site's red discount badge. */
-  tagTone?: 'default' | 'sale';
   imageUrl?: string;
-  /** Small chips (live: "Free Shipping", "Warranty", warranty tags). */
+  /** Small chips (live: "Free Shipping", "Warranty", warranty tags; not shown on this card). */
   chips?: string[];
-  /** Seller free-shipping progress line (orange), or green once unlocked. */
-  freeShippingHint?: { text: string; unlocked: boolean };
+  /** Seller free-shipping progress (orange), or green once unlocked. `shortText` = the card's
+   *  one-line pill label, when there is one; otherwise `text`, cut to one line. */
+  freeShippingHint?: { text: string; shortText?: string; unlocked: boolean };
 };
 
 type CardActions = {
   /** Tap on the product (image, name, price, …). */
   onOpen?: (product: ProductSummary) => void;
-  /** "Add to Cart"; the button shows a spinner until the returned promise settles. */
+  /** The "+" button; it shows a spinner until the returned promise settles. */
   onAddToCart?: (product: ProductSummary) => Promise<void> | void;
 };
 
-/** 'compact' = smaller card for a 2-per-row phone grid (Shop). */
-type CardSize = 'regular' | 'compact';
+const COPY = {
+  // Confirmed from the live product card.
+  soldBy: 'Sold by',
+  // PLACEHOLDER COPY (not confirmed anywhere) — screen-reader labels only.
+  addToCart: 'Add to Cart',
+  wishlist: 'Wishlist, Coming soon',
+};
 
-const STAR_COUNT = 5;
+/** Card width in a horizontal row: 2 cards plus the edge of the next one visible on a phone. */
+const ROW_CARD_WIDTH = 168;
+const HEART_SIZE = 26;
+const ADD_SIZE = 28;
 
 // Live grid: 4 columns, 2 at ≤991px, 1 at ≤640px.
 function columnsFor(width: number): number {
@@ -65,42 +83,58 @@ function columnsFor(width: number): number {
   return width <= 991 ? 2 : 4;
 }
 
+/** Full listing (Shop, Home's Explore Products): `minColumns`+ cards per line. */
 export function ProductGrid({
   products,
   minColumns = 1,
-  size = 'regular',
   ...actions
 }: {
   products: ProductSummary[];
-  /** Never fewer columns than this (Shop: 2 per row on phones). */
+  /** Never fewer columns than this (2 per row on phones). */
   minColumns?: number;
-  size?: CardSize;
 } & CardActions) {
   const columns = Math.max(minColumns, columnsFor(useWindowDimensions().width));
-  const compact = size === 'compact';
   return (
-    <View style={[styles.grid, compact && styles.gridCompact]}>
+    <View style={styles.grid}>
       {products.map((product) => (
-        <View key={product.id} style={{ width: `${100 / columns}%` }}>
-          <View style={[styles.gridCell, compact && styles.gridCellCompact]}>
-            <ProductCard product={product} size={size} {...actions} />
-          </View>
+        <View key={product.id} style={[styles.gridCell, { width: `${100 / columns}%` }]}>
+          <ProductCard product={product} {...actions} />
         </View>
       ))}
     </View>
   );
 }
 
+/** One horizontally scrolling row (Home's Flash Deals / Trending Now); the next card peeks in. */
+export function ProductRow({
+  products,
+  bleed = 16,
+  ...actions
+}: {
+  products: ProductSummary[];
+  /** The parent's side padding, cancelled so the row runs to the screen edges. */
+  bleed?: number;
+} & CardActions) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginHorizontal: -bleed }}
+      contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}>
+      {products.map((product) => (
+        <View key={product.id} style={styles.rowCell}>
+          <ProductCard product={product} {...actions} />
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
 export function ProductCard({
   product,
-  size = 'regular',
   onOpen,
   onAddToCart,
-}: { product: ProductSummary; size?: CardSize } & CardActions) {
-  const compact = size === 'compact';
-  // Live card script: floor(avg) full stars, then a half star if there's a remainder.
-  const fullStars = Math.floor(product.rating);
-  const hasHalfStar = product.rating % 1 > 0;
+}: { product: ProductSummary } & CardActions) {
   const [adding, setAdding] = useState(false);
   const mounted = useRef(true);
 
@@ -125,173 +159,135 @@ export function ProductCard({
     }
   }
 
+  const open = () => onOpen?.(product);
+  const hint = product.freeShippingHint;
+
   return (
     <View style={styles.card}>
-      {/* The product area and "Add to Cart" are sibling pressables (not nested), so tapping the
-          button never also opens the product, and screen readers can reach both. */}
-      <Pressable
-        onPress={() => onOpen?.(product)}
-        // Compact: the content fills the card, so "Add to Cart" always sits at the bottom.
-        style={({ pressed }) => [compact && styles.fill, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={product.name}>
-        {/* White (not the live beige gradient) so the photo's own backdrop blends into the box
-            instead of reading as a separate colored rectangle. */}
-        <View style={[styles.imageWrap, compact && styles.imageWrapCompact]}>
+      {/* Image area: the photo opens the product; badge and heart sit over it. */}
+      <View style={styles.imageWrap}>
+        <Pressable
+          onPress={open}
+          style={({ pressed }) => [styles.imagePressable, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={product.name}>
+          {/* Plain white behind the photo, "contain" so the whole product stays visible. */}
           {product.imageUrl ? (
-            // "contain": the whole product photo stays visible (no crop/zoom).
             <Image source={{ uri: product.imageUrl }} style={styles.image} contentFit="contain" />
           ) : (
             <SymbolView
               name={{ ios: 'photo', android: 'image', web: 'image' }}
-              size={40}
+              size={32}
               tintColor={Colors.placeholderIcon}
             />
           )}
-          {product.tag && (
-            <LinearGradient
-              colors={
-                product.tagTone === 'sale'
-                  ? HomeGradients.saleTag.colors
-                  : HomeGradients.productTag.colors
-              }
-              locations={
-                product.tagTone === 'sale'
-                  ? HomeGradients.saleTag.locations
-                  : HomeGradients.productTag.locations
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.tag, compact && styles.tagCompact]}>
-              <Text style={[styles.tagText, compact && styles.tagTextCompact]}>{product.tag}</Text>
-            </LinearGradient>
-          )}
-        </View>
+        </Pressable>
 
-        <View style={[styles.body, compact && styles.bodyCompact]}>
-          <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>
-            {product.name}
-          </Text>
-          <View style={styles.sellerRow}>
-            <SymbolView
-              name={{
-                ios: 'basket',
-                android: 'shopping_basket',
-                web: 'shopping_basket',
-              }}
-              size={10}
-              tintColor={Colors.helperText}
-            />
-            <Text style={styles.sellerLabel}>Sold by: </Text>
-            <Text style={styles.sellerName} numberOfLines={1}>
-              {product.sellerName}
+        {product.tag && (
+          <View style={styles.tag} pointerEvents="none">
+            <Text style={styles.tagText} numberOfLines={1}>
+              {product.tag}
             </Text>
           </View>
-          {/* Compact: fixed 2-line box, kept even when there's no hint, so the price below
-              lines up across the row. */}
-          <View style={compact && styles.hintBoxCompact}>
-            {product.freeShippingHint && (
-              <Text
-                style={[
-                  styles.freeShippingHint,
-                  product.freeShippingHint.unlocked && styles.freeShippingUnlocked,
-                ]}
-                numberOfLines={compact ? 2 : undefined}>
-                {product.freeShippingHint.text}
-              </Text>
-            )}
-          </View>
-          {/* Compact: everything above flows (a 1- or 2-line name takes only its own space);
-              this spacer pushes price, rating and "Add to Cart" to the bottom, so they line up
-              across the row. */}
-          {compact && <View style={styles.fill} />}
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
-              {product.priceLabel}
-            </Text>
-            {product.originalPriceLabel && (
-              <Text style={styles.originalPrice} numberOfLines={1}>
-                {product.originalPriceLabel}
-              </Text>
-            )}
-          </View>
-          {/* Compact: the rating row's height is kept even at 0 reviews (row hidden), so every
-              card in a row has the same height. */}
-          <View style={compact && styles.ratingBoxCompact}>
-            {product.ratingCount > 0 && (
-              <View
-                style={[styles.ratingRow, compact && styles.ratingRowCompact]}
-                accessible
-                accessibilityLabel={`${product.rating.toFixed(1)} (${product.ratingCount})`}>
-                <View style={styles.stars}>
-                  {Array.from({ length: STAR_COUNT }, (_, index) => (
-                    <SymbolView
-                      key={index}
-                      name={
-                        index < fullStars
-                          ? { ios: 'star.fill', android: 'star', web: 'star' }
-                          : index === fullStars && hasHalfStar
-                            ? {
-                                ios: 'star.leadinghalf.filled',
-                                android: 'star_half',
-                                web: 'star_half',
-                              }
-                            : {
-                                ios: 'star',
-                                android: 'star_border',
-                                web: 'star_border',
-                              }
-                      }
-                      size={compact ? 11 : 14}
-                      tintColor={Colors.ratingStar}
-                    />
-                  ))}
-                </View>
-                <Text style={[styles.ratingValue, compact && styles.ratingTextCompact]}>
-                  {product.rating.toFixed(1)}
-                </Text>
-                <Text style={[styles.ratingCount, compact && styles.ratingTextCompact]}>
-                  ({product.ratingCount})
-                </Text>
-              </View>
-            )}
-          </View>
-          {/* Live .sm-chip-row: always takes one row of height, even when empty. Compact cards
-              only show it when there are chips. */}
-          {(!compact || (product.chips ?? []).length > 0) && (
-          <View style={styles.chipRow}>
-            {(product.chips ?? []).map((chip) => (
-              <Text
-                key={chip}
-                style={[styles.chip, compact && styles.chipCompact]}
-                numberOfLines={1}>
-                {chip}
-              </Text>
-            ))}
-          </View>
-          )}
+        )}
+
+        {/* Wishlist: visual only — not a feature yet (same as other "Coming soon" items). */}
+        <View
+          style={styles.heart}
+          accessible
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          accessibilityLabel={COPY.wishlist}>
+          <SymbolView
+            name={{ ios: 'heart', android: 'favorite_border', web: 'favorite_border' }}
+            size={13}
+            tintColor={Colors.helperText}
+          />
         </View>
+      </View>
+
+      {/* Text area also opens the product; the image above already carries the screen-reader
+          label, so this copy is skipped by screen readers. */}
+      <Pressable
+        onPress={open}
+        style={({ pressed }) => [styles.body, pressed && styles.pressed]}
+        accessible={false}
+        importantForAccessibility="no-hide-descendants">
+        <Text style={styles.name} numberOfLines={2}>
+          {product.name}
+        </Text>
+
+        {/* Only with real reviews — no placeholder stars. */}
+        {product.ratingCount > 0 && (
+          <View style={styles.ratingRow}>
+            <SymbolView
+              name={{ ios: 'star.fill', android: 'star', web: 'star' }}
+              size={10}
+              tintColor={Colors.primaryOrange}
+            />
+            <Text style={styles.ratingValue}>{product.rating.toFixed(1)}</Text>
+            <Text style={styles.ratingCount}>({product.ratingCount})</Text>
+          </View>
+        )}
+
+        <Text style={styles.price} numberOfLines={1}>
+          {product.priceLabel}
+        </Text>
+        {product.originalPriceLabel && (
+          <View style={styles.discountRow}>
+            <Text style={styles.originalPrice} numberOfLines={1}>
+              {product.originalPriceLabel}
+            </Text>
+            {product.discountPct !== undefined && product.discountPct > 0 && (
+              <Text style={styles.discountPct}>-{product.discountPct}%</Text>
+            )}
+          </View>
+        )}
+
+        <Text style={styles.soldBy} numberOfLines={1}>
+          {COPY.soldBy}: {product.sellerName}
+        </Text>
       </Pressable>
 
-      <View style={[styles.footer, compact && styles.footerCompact]}>
+      {/* Footer, pinned to the card bottom so cards in a row line up: compact free-shipping
+          badge (start) and the "+" add-to-cart button (end). */}
+      <View style={styles.footer}>
+        <View style={styles.footerStart}>
+          {hint && (
+            <View style={[styles.shipBadge, hint.unlocked && styles.shipBadgeUnlocked]}>
+              <SymbolView
+                name={{ ios: 'shippingbox', android: 'local_shipping', web: 'local_shipping' }}
+                size={9}
+                tintColor={hint.unlocked ? Colors.verifiedText : Colors.primaryOrange}
+              />
+              <Text
+                style={[styles.shipText, hint.unlocked && styles.shipTextUnlocked]}
+                numberOfLines={1}>
+                {hint.shortText ?? hint.text}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Add to cart (real): the same action the old full-width button had. */}
         <Pressable
           onPress={handleAddToCart}
           disabled={adding}
+          hitSlop={6}
+          style={({ pressed }) => [styles.add, (pressed || adding) && styles.pressed]}
           accessibilityRole="button"
-          accessibilityState={{ disabled: adding, busy: adding }}
-          style={({ pressed }) => (pressed || adding) && styles.pressed}>
-          <LinearGradient
-            colors={HomeGradients.orangeButton.colors}
-            locations={HomeGradients.orangeButton.locations}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.addButton}>
-            {adding ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <Text style={styles.addText}>Add to Cart</Text>
-            )}
-          </LinearGradient>
+          accessibilityLabel={`${COPY.addToCart}: ${product.name}`}
+          accessibilityState={{ disabled: adding, busy: adding }}>
+          {adding ? (
+            <ActivityIndicator color={Colors.white} size="small" />
+          ) : (
+            <SymbolView
+              name={{ ios: 'plus', android: 'add', web: 'add' }}
+              size={14}
+              weight="bold"
+              tintColor={Colors.white}
+            />
+          )}
         </Pressable>
       </View>
     </View>
@@ -302,93 +298,34 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -7, // .sm-products gap: 14px
-    rowGap: 14,
-  },
-  gridCell: {
-    paddingHorizontal: 7,
-    flex: 1,
-  },
-  // Compact grid: 10px gap (live Shop .sp-grid).
-  gridCompact: {
     marginHorizontal: -5,
     rowGap: 10,
   },
-  gridCellCompact: {
+  gridCell: {
     paddingHorizontal: 5,
   },
-  // ---- Compact card (2 per row): same content, scaled down. ----
-  imageWrapCompact: {
-    height: 150,
+  row: {
+    gap: 12,
   },
-  tagCompact: {
-    top: 8,
-    start: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  tagTextCompact: {
-    fontSize: 10,
-    letterSpacing: 0.2,
-  },
-  bodyCompact: {
-    flex: 1, // lets the spacer push price/rating down to the button
-    paddingTop: 10,
-    paddingHorizontal: 10,
-  },
-  // Compact card: every text block has a fixed height, so cards in a row line up exactly.
-  fill: {
-    flex: 1,
-  },
-  nameCompact: {
-    fontSize: 14,
-    lineHeight: 19,
-    minHeight: undefined, // 1 or 2 lines (numberOfLines 2), no reserved blank line
-  },
-  hintBoxCompact: {
-    height: 34, // marginTop 4 + 2 lines of 15
-  },
-  ratingBoxCompact: {
-    height: 24,
-    justifyContent: 'center',
-  },
-  ratingRowCompact: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  priceCompact: {
-    fontSize: 15,
-  },
-  ratingTextCompact: {
-    fontSize: 11,
-  },
-  chipCompact: {
-    maxWidth: 90,
-    paddingHorizontal: 7,
-    fontSize: 10,
-  },
-  footerCompact: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+  rowCell: {
+    width: ROW_CARD_WIDTH,
   },
   card: {
     flex: 1,
     backgroundColor: Colors.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  imageWrap: {
-    height: 220,
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.inputBorder,
+  },
+  // Square, full card width, plain white, no inner padding.
+  imageWrap: {
+    width: '100%',
+    aspectRatio: 1.1, // slightly wide
+    backgroundColor: Colors.white,
+  },
+  imagePressable: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -397,141 +334,131 @@ const styles = StyleSheet.create({
   },
   tag: {
     position: 'absolute',
-    top: 10,
-    start: 10,
-    borderRadius: 999,
-    paddingVertical: 7,
-    paddingHorizontal: 16,
+    top: 6,
+    start: 6,
+    maxWidth: '65%',
+    borderRadius: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    backgroundColor: Colors.primaryOrange,
   },
   tagText: {
-    fontFamily: Fonts.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.26,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 9,
+    letterSpacing: 0.2,
     color: Colors.white,
   },
-  body: {
-    paddingTop: 12,
-    paddingHorizontal: 14,
+  heart: {
+    position: 'absolute',
+    top: 6,
+    end: 6,
+    width: HEART_SIZE,
+    height: HEART_SIZE,
+    borderRadius: HEART_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
-  footer: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
+  body: {
+    paddingTop: 6,
+    paddingHorizontal: 8,
   },
   name: {
-    fontFamily: Fonts.primary,
-    fontSize: 17,
-    fontWeight: '700',
-    lineHeight: 23,
-    minHeight: 40,
+    fontFamily: Fonts.primarySemiBold,
+    fontSize: 13,
+    lineHeight: 17,
     color: Colors.sectionHeading,
-  },
-  sellerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-  },
-  sellerLabel: {
-    fontFamily: Fonts.primary,
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.helperText,
-  },
-  sellerName: {
-    flexShrink: 1,
-    fontFamily: Fonts.primary,
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.dark,
-  },
-  freeShippingHint: {
-    marginTop: 4,
-    fontFamily: Fonts.primary,
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
-    color: Colors.primaryOrange,
-  },
-  freeShippingUnlocked: {
-    color: Colors.verifiedText,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  originalPrice: {
-    fontFamily: Fonts.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.helperText,
-    textDecorationLine: 'line-through',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 6,
-    minHeight: 24,
-    maxHeight: 24,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  chip: {
-    maxWidth: 120,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(242,170,100,0.3)',
-    backgroundColor: 'rgb(255,240,221)',
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-    overflow: 'hidden',
-    fontFamily: Fonts.primary,
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.chipText,
-  },
-  price: {
-    fontFamily: Fonts.primary,
-    fontSize: 16,
-    fontWeight: '800',
-    // Solid stand-in for the live text gradient (#f28316 → #e06a00).
-    color: Colors.primaryOrange,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  stars: {
-    flexDirection: 'row',
-    gap: 1,
+    gap: 3,
+    marginTop: 2,
   },
   ratingValue: {
-    fontFamily: Fonts.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.ratingValue,
+    fontFamily: Fonts.secondary,
+    fontSize: 10,
+    color: Colors.dark,
   },
   ratingCount: {
-    fontFamily: Fonts.primary,
-    fontSize: 13,
+    fontFamily: Fonts.secondary,
+    fontSize: 10,
     color: Colors.helperText,
   },
-  addButton: {
-    minHeight: 36,
-    borderRadius: 10,
+  price: {
+    marginTop: 2,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 15,
+    color: Colors.primaryOrange,
+  },
+  discountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+  },
+  originalPrice: {
+    flexShrink: 1,
+    fontFamily: Fonts.primary,
+    fontSize: 11,
+    color: Colors.helperText,
+    textDecorationLine: 'line-through',
+  },
+  discountPct: {
+    fontFamily: Fonts.primaryBold,
+    fontSize: 10,
+    color: Colors.verifiedText,
+  },
+  soldBy: {
+    marginTop: 1,
+    fontFamily: Fonts.primary,
+    fontSize: 10,
+    lineHeight: 13,
+    color: Colors.helperText,
+  },
+  footer: {
+    marginTop: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 6,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  footerStart: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+  },
+  shipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '100%',
+    gap: 3,
+    borderRadius: 999,
+    paddingVertical: 3,
+    paddingHorizontal: 5,
+    backgroundColor: 'rgba(242,131,22,0.1)', // Primary Orange, tinted
+  },
+  shipBadgeUnlocked: {
+    backgroundColor: 'rgba(25,135,84,0.08)', // verifiedText, tinted
+  },
+  shipText: {
+    flexShrink: 1,
+    fontFamily: Fonts.primary,
+    fontSize: 9,
+    lineHeight: 11,
+    color: Colors.primaryOrange,
+  },
+  shipTextUnlocked: {
+    color: Colors.verifiedText,
+  },
+  add: {
+    width: ADD_SIZE,
+    height: ADD_SIZE,
+    borderRadius: ADD_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  addText: {
-    fontFamily: Fonts.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.36,
-    color: Colors.white,
+    backgroundColor: Colors.primaryOrange,
   },
   pressed: {
     opacity: 0.85,

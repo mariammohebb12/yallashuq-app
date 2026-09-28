@@ -321,9 +321,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   sampleBannerText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     lineHeight: 18,
     color: Colors.dark,
   },
@@ -351,9 +350,8 @@ const styles = StyleSheet.create({
     color: Colors.subtleText,
   },
   crumbActive: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '800',
     color: Colors.dark,
   },
   sections: {
@@ -371,15 +369,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   muted: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
   },
   divider: {
@@ -396,17 +392,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   addressLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     textTransform: 'uppercase',
     color: Colors.helperText,
     marginBottom: 2,
   },
   addressName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.sectionHeading,
   },
   addressLine: {
@@ -416,9 +410,8 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   link: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -441,9 +434,8 @@ const styles = StyleSheet.create({
   },
   optionName: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
   },
   radio: {
@@ -465,9 +457,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   input: {
@@ -500,9 +491,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   payText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

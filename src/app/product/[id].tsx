@@ -307,7 +307,7 @@ function ProductDetails({
         <View style={styles.ratingRow}>
           <Stars rating={product.rating} size={15} />
           <Text style={styles.ratingValue}>{product.rating.toFixed(1)}</Text>
-          <Text style={styles.ratingCount}>{COPY.reviewsCount(product.ratingCount)}</Text>
+          <Text style={styles.reviewsCountLabel}>{COPY.reviewsCount(product.ratingCount)}</Text>
           <Pressable onPress={onSeeAllReviews} hitSlop={8} accessibilityRole="link">
             <Text style={styles.seeAll}>{COPY.seeAll}</Text>
           </Pressable>
@@ -570,9 +570,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   name: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 24,
-    fontWeight: '800',
     lineHeight: 30,
     color: Colors.sectionHeading,
   },
@@ -587,13 +586,18 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   ratingValue: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.ratingValue,
   },
   ratingCount: {
     fontFamily: Fonts.primary,
+    fontSize: 13,
+    color: Colors.helperText,
+  },
+  // Live: inline font-family 'Archivo', sans-serif (the site never loads it; the app bundles it).
+  reviewsCountLabel: {
+    fontFamily: Fonts.secondary,
     fontSize: 13,
     color: Colors.helperText,
   },
@@ -604,16 +608,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sellerLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: Colors.helperText,
   },
   sellerName: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.dark,
   },
   priceRow: {
@@ -623,23 +625,20 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   price: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   listPrice: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.helperText,
     textDecorationLine: 'line-through',
   },
   freeShippingHint: {
     marginTop: 8,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: Colors.primaryOrange,
   },
   freeShippingUnlocked: {
@@ -659,17 +658,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 9,
     overflow: 'hidden',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: Colors.chipText,
   },
   unavailable: {
     marginTop: 14,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 20,
     fontStyle: 'italic',
-    fontWeight: '600',
     color: Colors.dark,
   },
   outOfStockRow: {
@@ -680,9 +677,8 @@ const styles = StyleSheet.create({
   },
   outOfStock: {
     flexShrink: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.errorText,
   },
   combinationWarning: {
@@ -724,9 +720,8 @@ const styles = StyleSheet.create({
   stepperValue: {
     minWidth: 28,
     textAlign: 'center',
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.dark,
   },
   addPressable: {
@@ -739,9 +734,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.white,
   },
   contactButton: {
@@ -753,9 +747,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contactText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.white,
   },
   fixedInfo: {
@@ -778,7 +771,7 @@ const styles = StyleSheet.create({
     color: Colors.policyText,
   },
   shippingLabel: {
-    fontWeight: '700',
+    fontFamily: Fonts.primaryBold,
     color: Colors.dark,
   },
   seeAll: {
@@ -801,18 +794,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   viewAllText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.dark,
   },
   reviewsCard: {
     padding: 16,
   },
   reviewsTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   reviewsSummary: {
@@ -822,9 +813,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   reviewsAverage: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 36,
-    fontWeight: '800',
     color: Colors.dark,
   },
   reviewsSummaryText: {

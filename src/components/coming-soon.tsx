@@ -61,9 +61,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   badgeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 10,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   button: {
@@ -79,9 +78,8 @@ const styles = StyleSheet.create({
     backgroundColor: DISABLED_FILL,
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: DISABLED_LABEL,
   },
 });

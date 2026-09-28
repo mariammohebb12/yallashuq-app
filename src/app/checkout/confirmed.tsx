@@ -68,9 +68,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   message: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 22,
-    fontWeight: '800',
     textAlign: 'center',
     color: Colors.dark,
   },
@@ -84,9 +83,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

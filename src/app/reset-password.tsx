@@ -113,9 +113,8 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 32,
-    fontWeight: '800',
     lineHeight: 38,
     letterSpacing: -0.64,
     color: Colors.dark,
@@ -130,9 +129,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   label: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
     marginBottom: 8,
   },
@@ -152,9 +150,8 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   backLinkText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
 });

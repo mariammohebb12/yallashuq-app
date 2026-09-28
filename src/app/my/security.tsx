@@ -168,9 +168,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   body: {
@@ -180,10 +179,9 @@ const styles = StyleSheet.create({
     color: Colors.dark,
   },
   warning: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '700',
     color: Colors.errorText,
   },
   checkRow: {

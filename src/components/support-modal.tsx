@@ -246,9 +246,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '700',
     color: Colors.dark,
   },
   orderLine: {
@@ -257,7 +256,7 @@ const styles = StyleSheet.create({
     color: Colors.mutedText,
   },
   orderName: {
-    fontWeight: '700',
+    fontFamily: Fonts.primaryBold,
     color: Colors.supportOrange,
   },
   body: {
@@ -280,9 +279,8 @@ const styles = StyleSheet.create({
   },
   // Live: bold, small, uppercase, 50% opacity.
   contactLabel: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     textTransform: 'uppercase',
     color: Colors.dark,
     opacity: 0.5,
@@ -299,18 +297,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   missingText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 11,
-    fontWeight: '700',
     color: Colors.mutedText,
   },
   field: {
     marginBottom: 14,
   },
   label: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 13,
-    fontWeight: '600',
     color: Colors.dark,
     marginBottom: 6,
   },
@@ -355,9 +351,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.supportOrange,
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

@@ -1,5 +1,7 @@
-import { mockOrderDetail, mockOrderList, mockReviewInfo } from './mocks/orders.mock';
-import { odooUrl } from './odoo-client';
+import { NETWORK_ERROR_MESSAGE } from './messages';
+import { mockOrderDetail, mockOrderList } from './mocks/orders.mock';
+import { odooJsonRpc } from './odoo-client';
+import { productImageUrl } from './product-image-overrides';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -173,22 +175,33 @@ export async function fetchOrder(id: number): Promise<OrderResult> {
 function withImageUrl<T extends OrderSummary>(order: T): T {
   return {
     ...order,
-    firstProductImageUrl: order.firstProductImageUrl && odooUrl(order.firstProductImageUrl),
+    firstProductImageUrl:
+      order.firstProductImageUrl && productImageUrl(order.firstProductImageUrl),
   };
 }
 
 /*
- * Order review ("Edit Review" on the list). The live site uses two EXISTING JSON-RPC routes:
- *   rpc('/my/orders/review/info', {order_id})  → the order's product + any existing review
- *   rpc('/my/orders/review/submit', {order_id, product_id, rating, comment})
- * Not called yet: the orders themselves are still mock data (#005), so their ids and products
- * don't line up with the signed-in customer's real orders. Nothing is submitted anywhere.
+ * Order review ("Edit Review" on the list): two EXISTING JSON-RPC routes of the backend's
+ * yallashuq_product_reviews module — what the live /my/orders popup calls (its review_modal.js).
+ * NOT IN CLAUDE.md's CONFIRMED ROUTE LIST; checked on staging 2026-09-28 with the test customer:
+ *   /my/orders/review/info   {order_id} → {status, is_update, product: {id, name, order_date,
+ *                                          existing_rating, existing_comment, …}}
+ *                                          or {status: 'error', message} ("Unauthorized" for an
+ *                                          order that isn't the customer's)
+ *   /my/orders/review/submit {order_id, product_id, rating 1–5, comment} → {status: 'success'}
+ *                                          or {status: 'error', message}. All four are required
+ *                                          (comment may be ''); resubmitting edits the review.
+ * One product per order. The order ids come from the (still mock, #005) My Orders list, which
+ * uses the staging test customer's real order ids.
  */
 
 export type ReviewInfo = {
+  /** product.template id — what submit takes as `product_id`. */
+  productId: number;
   productName: string;
-  /** Live: /web/image/product.template/<id>/image_128; null when there's no product id. */
-  productImageUrl: string | null;
+  /** Live: /web/image/product.template/<id>/image_128. */
+  productImageUrl: string;
+  /** As the backend formats it, e.g. "16/09/2026". */
   orderDateFormatted: string;
   /** The customer already reviewed this product: the popup opens pre-filled, in "update" mode. */
   isUpdate: boolean;
@@ -197,28 +210,73 @@ export type ReviewInfo = {
   existingComment: string;
 };
 
-/**
- * TEMPORARY: mock shaped like /my/orders/review/info (see above); `info` is null for an unknown
- * order. TODO: odooJsonRpc('/my/orders/review/info', {order_id}) once orders are real (#005).
- */
+type ReviewResponse = { status?: string; message?: string };
+
+type ReviewInfoResponse = ReviewResponse & {
+  is_update?: boolean;
+  product?: {
+    id: number;
+    name: string;
+    order_date: string;
+    existing_rating?: number;
+    existing_comment?: string;
+  };
+};
+
+// Confirmed from the live popup's script (its fallback when the backend sends no message).
+const REVIEW_FAILED_MESSAGE = 'Failed to submit review.';
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : NETWORK_ERROR_MESSAGE;
+}
+
 export async function fetchReviewInfo(
   orderId: number
-): Promise<{ ok: true; info: ReviewInfo | null } | { ok: false; message: string }> {
-  const data = mockReviewInfo(orderId);
-  if (!data) {
-    return { ok: true, info: null };
+): Promise<{ ok: true; info: ReviewInfo } | { ok: false; message: string }> {
+  try {
+    const data = await odooJsonRpc<ReviewInfoResponse>('/my/orders/review/info', {
+      order_id: orderId,
+    });
+    const product = data?.product;
+    if (data?.status !== 'success' || !product) {
+      return { ok: false, message: data?.message || NETWORK_ERROR_MESSAGE };
+    }
+    const isUpdate = data.is_update === true;
+    return {
+      ok: true,
+      info: {
+        productId: product.id,
+        productName: product.name,
+        productImageUrl: productImageUrl(`/web/image/product.template/${product.id}/image_128`),
+        orderDateFormatted: product.order_date,
+        isUpdate,
+        existingRating: isUpdate ? (product.existing_rating ?? 0) : 0,
+        existingComment: isUpdate ? (product.existing_comment ?? '') : '',
+      },
+    };
+  } catch (error) {
+    return { ok: false, message: errorMessage(error) };
   }
-  const { product } = data;
-  return {
-    ok: true,
-    info: {
-      productName: product.name,
-      productImageUrl:
-        product.id !== null ? odooUrl(`/web/image/product.template/${product.id}/image_128`) : null,
-      orderDateFormatted: product.order_date,
-      isUpdate: data.is_update,
-      existingRating: data.is_update ? data.existing_rating : 0,
-      existingComment: data.is_update ? data.existing_comment : '',
-    },
-  };
+}
+
+/** Creates the review, or updates the customer's existing one for this order's product. */
+export async function submitReview(review: {
+  orderId: number;
+  productId: number;
+  rating: number;
+  comment: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const data = await odooJsonRpc<ReviewResponse>('/my/orders/review/submit', {
+      order_id: review.orderId,
+      product_id: review.productId,
+      rating: review.rating,
+      comment: review.comment, // Always sent ('' when left blank): the route requires it.
+    });
+    return data?.status === 'success'
+      ? { ok: true }
+      : { ok: false, message: data?.message || REVIEW_FAILED_MESSAGE };
+  } catch (error) {
+    return { ok: false, message: errorMessage(error) };
+  }
 }

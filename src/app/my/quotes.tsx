@@ -98,9 +98,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 14,
   },
@@ -112,9 +111,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
     textAlign: 'center',
   },

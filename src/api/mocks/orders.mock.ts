@@ -257,30 +257,3 @@ export function mockOrderDetail(id: number): OrderDetail | null {
     returns: RETURNS[spec.id] ?? [],
   };
 }
-
-/**
- * Shaped like the REAL JSON route POST /my/orders/review/info {order_id} (what the live "Rate
- * Now" button calls): {status, product: {id, name, order_date}, is_update, existing_rating,
- * existing_comment}. Made up: S00073 already has a 2-star review without a comment; the other
- * orders have no review yet.
- */
-export function mockReviewInfo(orderId: number): {
-  status: 'success';
-  product: { id: number | null; name: string; order_date: string };
-  is_update: boolean;
-  existing_rating: number;
-  existing_comment: string;
-} | null {
-  const spec = SPECS.find((entry) => entry.id === orderId);
-  if (!spec) {
-    return null;
-  }
-  const hasReview = spec.id === 73;
-  return {
-    status: 'success',
-    product: { id: spec.product.templateId, name: spec.product.templateName, order_date: spec.date },
-    is_update: hasReview,
-    existing_rating: hasReview ? 2 : 0,
-    existing_comment: '',
-  };
-}

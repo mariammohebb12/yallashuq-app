@@ -1,7 +1,8 @@
 import type { ProductSummary } from '@/components/product-card';
 
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
-import { odooJsonRpc, odooRequest, odooUrl } from './odoo-client';
+import { odooJsonRpc, odooRequest } from './odoo-client';
+import { productImageUrl } from './product-image-overrides';
 
 /*
  * Product catalog from GET /home/catalog/more?hp_page=N — the JSON route the live homepage's
@@ -17,7 +18,8 @@ import { odooJsonRpc, odooRequest, odooUrl } from './odoo-client';
  *
  * Display rules below mirror the live site's own card script (cardTemplate on the homepage):
  * price = currency symbol + amount to 2 decimals, seller = seller_company || seller_name,
- * rating row only when rating_count > 0, "SALE -N%" tag when discounted, free-shipping hint when
+ * rating row only when rating_count > 0, discount (backend `discount_pct`, truncated) when
+ * discounted — shown by the app as "-N%" next to the price, not a badge — free-shipping hint when
  * free_shipping_min_qty > 0.
  */
 
@@ -128,7 +130,9 @@ export async function findCatalogProduct(templateId: number): Promise<CatalogPro
     found: {
       product: toProductSummary(found),
       formatPrice: (amount) => formatAmount(found, amount),
-      largeImageUrl: found.image ? odooUrl(found.image.replace(/image_512$/, 'image_1024')) : undefined,
+      largeImageUrl: found.image
+        ? productImageUrl(found.image.replace(/image_512$/, 'image_1024'))
+        : undefined,
     },
   };
 }
@@ -213,11 +217,11 @@ function formatAmount(card: CatalogCard, amount: number): string {
 }
 
 /**
- * Gives products the section's badge (live: "Hot Sale" in Flash Deals, "Top Deal" elsewhere),
- * keeping the "SALE -N%" badge of discounted products, as the live site does.
+ * Gives products the section's badge (live: "Hot Sale" in Flash Deals, "Top Deal" elsewhere).
+ * Discounts aren't a badge in the app: the card shows them as "-N%" next to the price.
  */
 export function withSectionTag(products: ProductSummary[], tag: string): ProductSummary[] {
-  return products.map((product) => (product.tag ? product : { ...product, tag }));
+  return products.map((product) => ({ ...product, tag }));
 }
 
 function toProductSummary(card: CatalogCard): ProductSummary {
@@ -239,8 +243,14 @@ function toProductSummary(card: CatalogCard): ProductSummary {
         ? {
             unlocked: false,
             text: `Add ${card.free_shipping_remaining_qty} more item(s) from this seller for free shipping.`,
+            // No confirmed short copy yet: the card shows the full text, cut to one line.
           }
-        : { unlocked: true, text: 'Free shipping unlocked for this seller.' };
+        : {
+            unlocked: true,
+            text: 'Free shipping unlocked for this seller.',
+            // Client's wording (2026-09-28) for the card's one-line pill.
+            shortText: 'Free shipping unlocked',
+          };
   }
 
   return {
@@ -252,9 +262,8 @@ function toProductSummary(card: CatalogCard): ProductSummary {
     originalPriceLabel: card.has_discount ? formatAmount(card, card.original_price) : undefined,
     rating: card.rating_avg,
     ratingCount: card.rating_count,
-    tag: card.has_discount ? `SALE -${Math.trunc(card.discount_pct)}%` : undefined,
-    tagTone: card.has_discount ? 'sale' : 'default',
-    imageUrl: card.image ? odooUrl(card.image) : undefined,
+    discountPct: card.has_discount ? Math.trunc(card.discount_pct) : undefined,
+    imageUrl: card.image ? productImageUrl(card.image) : undefined,
     chips,
     freeShippingHint,
   };

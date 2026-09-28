@@ -174,7 +174,11 @@ export default function ShopScreen() {
       style={styles.page}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primaryOrange} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refresh}
+          tintColor={Colors.primaryOrange}
+        />
       }>
       {/* Breadcrumb: Home / All Products */}
       <View style={styles.breadcrumb}>
@@ -202,7 +206,11 @@ export default function ShopScreen() {
         <View style={styles.sellersEnd}>
           <ComingSoonBadge />
           <SymbolView
-            name={{ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }}
+            name={{
+              ios: 'chevron.down',
+              android: 'keyboard_arrow_down',
+              web: 'keyboard_arrow_down',
+            }}
             size={14}
             tintColor={Colors.placeholderIcon}
           />
@@ -236,7 +244,11 @@ export default function ShopScreen() {
           accessibilityLabel={`${CURRENT_SORT.label}, ${COPY.comingSoon}`}>
           <Text style={styles.sortText}>{CURRENT_SORT.label}</Text>
           <SymbolView
-            name={{ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }}
+            name={{
+              ios: 'chevron.down',
+              android: 'keyboard_arrow_down',
+              web: 'keyboard_arrow_down',
+            }}
             size={12}
             tintColor={Colors.placeholderIcon}
           />
@@ -252,11 +264,10 @@ export default function ShopScreen() {
         <FormMessage type="error" message={list.message} />
       ) : (
         <>
-          {/* 2 compact cards per row on phones (more on wider screens, per the shared grid). */}
+          {/* 2 cards per row on phones (more on wider screens, per the shared grid). */}
           <ProductGrid
             products={list.products}
             minColumns={2}
-            size="compact"
             onOpen={openProduct}
             onAddToCart={handleAddToCart}
           />
@@ -267,9 +278,7 @@ export default function ShopScreen() {
               style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
               accessibilityRole="button"
               accessibilityState={{ busy: loadingMore }}>
-              <Text style={styles.loadMoreText}>
-                {loadingMore ? COPY.loading : COPY.loadMore}
-              </Text>
+              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
             </Pressable>
           )}
         </>
@@ -277,7 +286,6 @@ export default function ShopScreen() {
     </ScrollView>
   );
 }
-
 
 /** Live filter checkbox look, permanently disabled for now. */
 function DisabledCheckbox({ label }: { label: string }) {
@@ -331,9 +339,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   noticeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 13,
-    fontWeight: '600',
     color: Colors.dark,
   },
   card: {
@@ -350,9 +357,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   sellersText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.dark,
   },
   sellersEnd: {
@@ -372,9 +378,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   filtersTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.dark,
   },
   filterRow: {
@@ -414,15 +419,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 22,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   headCount: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryMedium,
     fontSize: 12,
-    fontWeight: '500',
     color: Colors.subtleText,
   },
   sort: {
@@ -461,9 +464,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   loadMoreText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
     color: Colors.loadMoreText,
   },
   pressed: {

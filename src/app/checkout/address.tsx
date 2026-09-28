@@ -385,9 +385,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   locationTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.dark,
     marginBottom: 10,
   },
@@ -421,9 +420,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   discardText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.dark,
   },
   // Same as the signup forms' submit button.
@@ -436,9 +434,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   saving: {

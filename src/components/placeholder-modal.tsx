@@ -78,15 +78,13 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.dark,
   },
   detail: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.helperText,
   },
   message: {
@@ -105,9 +103,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.iconButtonBorder,
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
   },
   pressed: {

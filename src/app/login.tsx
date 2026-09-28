@@ -90,9 +90,9 @@ export default function LoginScreen({ onSignedIn }: LoginScreenProps = {}) {
   }
 
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-      edges={onSignedIn ? ['bottom', 'left', 'right'] : undefined}>
+    // Both uses sit under a header (the Account tab's, or the standalone route's), which already
+    // clears the top inset.
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -249,9 +249,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 32,
-    fontWeight: '800',
     lineHeight: 38,
     letterSpacing: -0.64,
     color: Colors.dark,
@@ -266,9 +265,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   label: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
   },
   labelSpacing: {
@@ -280,9 +278,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forgotLink: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   input: {
@@ -334,9 +331,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '700',
     color: Colors.white,
   },
   footer: {
@@ -344,9 +340,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryMedium,
     fontSize: 15,
-    fontWeight: '500',
     color: Colors.mutedText,
     marginBottom: 8,
   },
@@ -356,9 +351,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   footerLink: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   divider: {

@@ -32,8 +32,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   text: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
   },
 });

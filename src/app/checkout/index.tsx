@@ -338,9 +338,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   sampleBannerText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     lineHeight: 18,
     color: Colors.dark,
   },
@@ -364,15 +363,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '800',
     color: Colors.sectionHeading,
   },
   emptyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
   },
   addressList: {
@@ -396,9 +393,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   addressName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.sectionHeading,
     marginBottom: 2,
   },
@@ -419,15 +415,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.lightOrange,
   },
   addText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   link: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 14,
-    fontWeight: '700',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -442,15 +436,13 @@ const styles = StyleSheet.create({
   },
   optionName: {
     flex: 1,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.dark,
   },
   optionPrice: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.primaryOrange,
   },
   radio: {
@@ -503,9 +495,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.white,
   },
   orRow: {

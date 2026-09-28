@@ -175,9 +175,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 6,
   },
@@ -230,9 +229,8 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   submitText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     color: Colors.white,
   },
 });

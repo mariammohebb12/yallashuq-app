@@ -187,9 +187,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   cardTitle: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.white,
     textAlign: 'center',
   },
@@ -230,17 +229,15 @@ const styles = StyleSheet.create({
     borderEndColor: Colors.phoneGroupBorder,
   },
   currencyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 18,
-    fontWeight: '700',
     color: Colors.dark,
   },
   amountInput: {
     flex: 1,
     paddingHorizontal: 14,
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 18,
-    fontWeight: '700',
     color: Colors.dark,
   },
   notice: {
@@ -271,9 +268,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buttonText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.white,
   },
   pressed: {

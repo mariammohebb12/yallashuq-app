@@ -108,9 +108,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   badgeText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 12,
-    fontWeight: '700',
   },
   sampleBanner: {
     borderRadius: 12,
@@ -122,9 +121,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sampleBannerText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 13,
-    fontWeight: '700',
     lineHeight: 18,
     color: Colors.dark,
   },
@@ -139,9 +137,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   actionText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 11,
-    fontWeight: '700',
   },
   return: {
     backgroundColor: Colors.returnButtonBackground,

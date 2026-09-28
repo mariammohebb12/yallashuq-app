@@ -1,3 +1,6 @@
+import { setCartQuantity } from '@/state/cart-quantity';
+
+import { clearCookies } from './cookie-jar';
 import { extractAlert, extractForm, extractHiddenFields } from './html-form';
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { odooRequest } from './odoo-client';
@@ -69,4 +72,23 @@ export async function loginWithPassword(login: string, password: string): Promis
   } catch {
     return { kind: 'error', message: NETWORK_ERROR_MESSAGE };
   }
+}
+
+/*
+ * Sign out: GET /web/session/logout — standard Odoo, the same link the live site's "Log Out" uses
+ * (checked on staging 2026-09-28, signed in as the test customer). NOT IN CLAUDE.md's CONFIRMED
+ * ROUTE LIST. It ends the session on the server and answers with a redirect (not followed).
+ *
+ * The app's stored cookies are cleared either way, so the app is signed out even when the request
+ * fails (e.g. offline) — in that case the old server session simply stays until Odoo expires it.
+ * The cart badge goes back to 0: the backend's cart belongs to the old session.
+ */
+export async function signOut(): Promise<void> {
+  try {
+    await odooRequest('/web/session/logout');
+  } catch {
+    // Offline or server error: still sign out locally (see above).
+  }
+  await clearCookies();
+  setCartQuantity(0);
 }

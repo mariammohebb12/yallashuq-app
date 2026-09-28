@@ -114,10 +114,26 @@ export const HomeGradients = {
 
 /**
  * Font family names. These must match the keys registered in `FontSources` (./fonts.ts).
- * - primary: headings AND body, site-wide
- * - secondary: small/muted text only (e.g. review labels)
+ *
+ * Primary = the live site's 'Playfair Display Custom': the standard Playfair Display (v1.203,
+ * Google Fonts), which the site serves itself in exactly four weights —
+ * /yallashuq_seller/static/src/fonts/PlayfairDisplay-{Regular,Medium,SemiBold,Bold}.ttf (checked
+ * 2026-09-28). Each weight is its own family here so every platform uses the real file instead of
+ * a faked bold. The site's CSS also asks for weight 800; browsers show that with Bold, so do we.
+ *
+ * Secondary = 'Archivo' (small/muted text, e.g. review labels). The live site names it but never
+ * loads it, so visitors see the system sans-serif there. Earlier (2026-09-28) it was kept
+ * unregistered to match that; the client then asked for the real font (same day), so Archivo
+ * Regular + Bold (SIL OFL, from Google Fonts; license in assets/fonts/Archivo-OFL.txt) are
+ * bundled — Bold for the review popup's feedback label.
  */
 export const FontFamily = {
-  primary: 'Playfair Display Custom',
-  secondary: 'Archivo',
+  primary: 'PlayfairDisplay-Regular',
+  primaryMedium: 'PlayfairDisplay-Medium',
+  primarySemiBold: 'PlayfairDisplay-SemiBold',
+  primaryBold: 'PlayfairDisplay-Bold',
+  /** Regular italic, from Google Fonts (the live site ships no italic) — empty-field placeholders. */
+  primaryItalic: 'PlayfairDisplay-Italic',
+  secondary: 'Archivo-Regular',
+  secondaryBold: 'Archivo-Bold',
 } as const;

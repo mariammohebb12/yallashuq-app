@@ -207,9 +207,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heading: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 26,
-    fontWeight: '800',
     color: Colors.sectionHeading,
     marginBottom: 14,
   },
@@ -221,9 +220,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primarySemiBold,
     fontSize: 15,
-    fontWeight: '600',
     color: Colors.mutedText,
   },
   list: {
@@ -244,9 +242,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   orderName: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 17,
-    fontWeight: '800',
     color: Colors.primaryOrange,
     textDecorationLine: 'underline',
   },
@@ -282,9 +279,8 @@ const styles = StyleSheet.create({
     color: Colors.helperText,
   },
   total: {
-    fontFamily: Fonts.primary,
+    fontFamily: Fonts.primaryBold,
     fontSize: 16,
-    fontWeight: '800',
     color: Colors.primaryOrange,
   },
   returnRow: {
