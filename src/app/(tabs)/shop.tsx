@@ -53,6 +53,8 @@ const COPY = {
   // Confirmed from the live homepage catalog's button.
   loadMore: 'Load More',
   loading: 'Loading...',
+  // App wording (client 2026-09-28): opens the live /inventory/search page's search — never "AI".
+  smartSearch: 'Smart Search',
   // PLACEHOLDER COPY (not confirmed anywhere).
   comingSoon: 'Coming soon',
   categoryNotice: 'Category filtering is coming soon — showing all products.',
@@ -188,6 +190,24 @@ export default function ShopScreen() {
         <Text style={styles.breadcrumbText}> / </Text>
         <Text style={styles.breadcrumbText}>{COPY.allProducts}</Text>
       </View>
+
+      {/* Smart Search (real, /inventory/search/query) — its own screen. */}
+      <Pressable
+        onPress={() => router.push('/smart-search')}
+        style={({ pressed }) => [styles.card, styles.smartSearch, pressed && styles.pressed]}
+        accessibilityRole="button">
+        <SymbolView
+          name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+          size={14}
+          tintColor={Colors.primaryOrange}
+        />
+        <Text style={styles.smartSearchText}>{COPY.smartSearch}</Text>
+        <SymbolView
+          name={{ ios: 'chevron.forward', android: 'chevron_right', web: 'chevron_right' }}
+          size={12}
+          tintColor={Colors.placeholderIcon}
+        />
+      </Pressable>
 
       {category !== undefined && (
         <View style={styles.notice} accessibilityRole="alert">
@@ -348,6 +368,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.phoneGroupBorder,
+  },
+  smartSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+  },
+  smartSearchText: {
+    flex: 1,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 14,
+    color: Colors.dark,
   },
   sellersToggle: {
     flexDirection: 'row',
