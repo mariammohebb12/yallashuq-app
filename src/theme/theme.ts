@@ -107,17 +107,6 @@ export const HomeGradients = {
   saleTag: { colors: ['#d9534f', '#b03030'], locations: [0, 1] },
   /** .sm-add and .sm-pagination .is-active (135deg) */
   orangeButton: { colors: ['#f28316', '#e06a00'], locations: [0, 1] },
-  /** .sm-cat:nth-child(1..8) (145deg), cycled for any further categories. */
-  categories: [
-    { colors: ['#e8f4fd', '#d0eaf9'], locations: [0, 1] },
-    { colors: ['#fef3e2', '#fde4bb'], locations: [0, 1] },
-    { colors: ['#edfaf1', '#d2f5e0'], locations: [0, 1] },
-    { colors: ['#fde8f5', '#f8ceee'], locations: [0, 1] },
-    { colors: ['#ede8fd', '#ddd0fa'], locations: [0, 1] },
-    { colors: ['#fefae2', '#faf0b8'], locations: [0, 1] },
-    { colors: ['#e8fdf8', '#c8f5ec'], locations: [0, 1] },
-    { colors: ['#fdecea', '#f9d0cc'], locations: [0, 1] },
-  ],
 } as const;
 
 /**

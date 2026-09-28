@@ -20,7 +20,7 @@ import { FormMessage } from '@/components/form-message';
 import { ProductGrid, ProductRow, type ProductSummary } from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
-import { Colors, HomeGradients } from '@/theme/theme';
+import { BrandGradient, Colors, HomeGradients } from '@/theme/theme';
 
 // Screen 1: Home. Sections, copy and styles mirror the live homepage
 // (yallashuq.com/, `.sm-*` classes), at its mobile breakpoints. Products come from the backend
@@ -30,22 +30,23 @@ import { Colors, HomeGradients } from '@/theme/theme';
 // and then opens Cart (as the live site does); "View All" / "See All" / "Explore" open Shop; hero
 // chips and category cards open Shop filtered by category. Search and pagination still only log.
 
-type Category = { id: number; name: string };
+type Category = { id: number; name: string; icon: SymbolViewProps['name'] };
 
 // Real categories and their Odoo ids (from the live homepage's /shop?category=<id> links).
+// Icons: app-chosen SF Symbols / Material icons matching each name (client request 2026-09-28) —
+// the live categories have no images of their own (only Odoo's placeholder).
 const CATEGORIES: Category[] = [
-  { id: 1, name: 'Desks' },
-  { id: 10, name: 'Components' },
-  { id: 11, name: 'Office Desks' },
-  { id: 17, name: 'Chairs' },
-  { id: 12, name: 'Gaming Desks' },
-  { id: 18, name: 'Couches' },
-  { id: 13, name: 'Glass Desks' },
-  { id: 14, name: 'Standing Desks' },
+  { id: 1, name: 'Desks', icon: symbol('table.furniture', 'desk') },
+  { id: 10, name: 'Components', icon: symbol('cpu', 'memory') },
+  { id: 11, name: 'Office Desks', icon: symbol('desktopcomputer', 'desktop_windows') },
+  { id: 17, name: 'Chairs', icon: symbol('chair', 'chair') },
+  { id: 12, name: 'Gaming Desks', icon: symbol('gamecontroller', 'sports_esports') },
+  { id: 18, name: 'Couches', icon: symbol('sofa', 'weekend') },
+  { id: 13, name: 'Glass Desks', icon: symbol('cube.transparent', 'view_in_ar') },
+  { id: 14, name: 'Standing Desks', icon: symbol('figure.stand', 'accessibility_new') },
 ];
-// Live .sm-cat:nth-child(1..8) gradients, cycled by the category's position.
-function categoryGradient(position: number) {
-  return HomeGradients.categories[position % HomeGradients.categories.length];
+function symbol(ios: string, android: string): SymbolViewProps['name'] {
+  return { ios, android, web: android } as SymbolViewProps['name'];
 }
 // Shop by Category: exactly 2 rows, scrolled sideways (client request 2026-09-28; the live site
 // shows a static 3-per-row grid on phones). Row-major: first half on row 1, the rest on row 2.
@@ -296,34 +297,30 @@ export default function HomeScreen() {
           <View style={styles.categoryRows}>
             {CATEGORY_ROWS.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.categoryRow}>
-                {row.map((category, index) => (
+                {row.map((category) => (
                   <Pressable
                     key={category.id}
                     onPress={() => openCategory(category)}
+                    style={({ pressed }) => [styles.category, pressed && styles.categoryPressed]}
                     accessibilityRole="button"
                     accessibilityLabel={category.name}>
-                    {/* Live .sm-cat:nth-child pastel gradients, same order as the live grid. */}
-                    <LinearGradient
-                      colors={categoryGradient(rowIndex * CATEGORY_ROWS[0].length + index).colors}
-                      locations={
-                        categoryGradient(rowIndex * CATEGORY_ROWS[0].length + index).locations
-                      }
-                      {...DIAGONAL}
-                      style={styles.category}>
-                      {/* Live categories all use Odoo's placeholder image for now. */}
-                      <View style={styles.categoryImage}>
-                        <SymbolView
-                          name={{ ios: 'photo', android: 'image', web: 'image' }}
-                          size={18}
-                          tintColor={Colors.placeholderIcon}
-                        />
-                      </View>
+                    {/* App design (client request 2026-09-28): a card with the brand gradient
+                        filling its top and the name underneath; same corners and border as the
+                        product cards. */}
+                    <View style={styles.categoryCard}>
+                      <LinearGradient
+                        colors={BrandGradient.colors}
+                        locations={BrandGradient.locations}
+                        {...DIAGONAL}
+                        style={styles.categoryImage}>
+                        <SymbolView name={category.icon} size={34} tintColor={Colors.white} />
+                      </LinearGradient>
                       <View style={styles.categoryNameBox}>
                         <Text style={styles.categoryName} numberOfLines={2}>
                           {category.name}
                         </Text>
                       </View>
-                    </LinearGradient>
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -637,6 +634,8 @@ const styles = StyleSheet.create({
   },
   categoryScroll: {
     paddingHorizontal: GUTTER,
+    // Room for the cards' shadows (the scroller clips at its edges).
+    paddingVertical: 6,
   },
   categoryRows: {
     gap: 10, // .sm-cats gap: 10px
@@ -646,35 +645,43 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   // Fixed width: about 3⅓ tiles visible on a phone, so the cut-off 4th shows there's more.
+  // Outer view carries the soft shadow (the app's usual 0.06 / 6 / 2); the inner card clips.
   category: {
-    width: 104,
-    alignItems: 'center',
-    paddingTop: 14,
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
+    width: 112,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  categoryPressed: {
+    opacity: 0.85,
+  },
+  // Same corners and hairline border as the product / Smart Search cards.
+  categoryCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.inputBorder,
+    backgroundColor: Colors.white,
   },
   categoryImage: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(236,236,236,0.8)',
-    backgroundColor: Colors.white,
+    height: 84,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
   categoryNameBox: {
-    minHeight: 28,
+    minHeight: 44,
     justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
   },
   categoryName: {
     fontFamily: Fonts.primaryBold,
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 15,
     textAlign: 'center',
     color: Colors.categoryName,
   },
