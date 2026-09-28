@@ -73,6 +73,9 @@ const COPY = {
 /** Card width in a horizontal row: 2 cards plus the edge of the next one visible on a phone. */
 const ROW_CARD_WIDTH = 168;
 const HEART_SIZE = 26;
+/** Flash Deals card: about 2½ per row visible on a phone, as in the client's reference. */
+const DEAL_CARD_WIDTH = 132;
+const DEAL_ADD_SIZE = 30;
 const ADD_SIZE = 28;
 
 // Live grid: 4 columns, 2 at ≤991px, 1 at ≤640px.
@@ -130,11 +133,8 @@ export function ProductRow({
   );
 }
 
-export function ProductCard({
-  product,
-  onOpen,
-  onAddToCart,
-}: { product: ProductSummary } & CardActions) {
+/** The "+" button's state: one request at a time, so a double tap can't add the product twice. */
+function useAddToCart(product: ProductSummary, onAddToCart: CardActions['onAddToCart']) {
   const [adding, setAdding] = useState(false);
   const mounted = useRef(true);
 
@@ -147,7 +147,7 @@ export function ProductCard({
 
   async function handleAddToCart() {
     if (adding || !onAddToCart) {
-      return; // One request at a time, so a double tap can't add the product twice.
+      return;
     }
     setAdding(true);
     try {
@@ -158,6 +158,16 @@ export function ProductCard({
       }
     }
   }
+
+  return { adding, handleAddToCart };
+}
+
+export function ProductCard({
+  product,
+  onOpen,
+  onAddToCart,
+}: { product: ProductSummary } & CardActions) {
+  const { adding, handleAddToCart } = useAddToCart(product, onAddToCart);
 
   const open = () => onOpen?.(product);
   const hint = product.freeShippingHint;
@@ -290,6 +300,121 @@ export function ProductCard({
           )}
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/**
+ * Home's Flash Deals (client reference 2026-09-28, noon's "Mega Deals"): two rows of compact deal
+ * cards, scrolled sideways. Row-major: the first half on row 1, the rest on row 2.
+ */
+export function DealRows({
+  products,
+  bleed = 16,
+  ...actions
+}: {
+  products: ProductSummary[];
+  /** The parent's side padding, cancelled so the rows run to the screen edges. */
+  bleed?: number;
+} & CardActions) {
+  const half = Math.ceil(products.length / 2);
+  const rows = [products.slice(0, half), products.slice(half)].filter((row) => row.length > 0);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginHorizontal: -bleed }}
+      contentContainerStyle={{ paddingHorizontal: bleed }}>
+      {/* The rows stack inside one view: a horizontal ScrollView lays its own children out
+          side by side. */}
+      <View style={styles.dealRows}>
+        {rows.map((row, index) => (
+          <View key={index} style={styles.dealRow}>
+            {row.map((product) => (
+              <DealCard key={product.id} product={product} {...actions} />
+            ))}
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+/**
+ * Compact deal card: the image (square "+" add-to-cart bottom-end), then the name, the price, the
+ * struck-through original price and the green discount (as in the reference), and "Sold by" —
+ * name and seller added, section badge left out (client 2026-09-28). Values exactly as the
+ * backend gives them.
+ */
+export function DealCard({
+  product,
+  onOpen,
+  onAddToCart,
+}: { product: ProductSummary } & CardActions) {
+  const { adding, handleAddToCart } = useAddToCart(product, onAddToCart);
+  const open = () => onOpen?.(product);
+  const discounted = product.discountPct !== undefined && product.discountPct > 0;
+
+  return (
+    <View style={styles.dealCard}>
+      <View style={styles.dealImageWrap}>
+        <Pressable
+          onPress={open}
+          style={({ pressed }) => [styles.imagePressable, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`${product.name}, ${product.priceLabel}`}>
+          {product.imageUrl ? (
+            <Image source={{ uri: product.imageUrl }} style={styles.dealImage} contentFit="contain" />
+          ) : (
+            <SymbolView
+              name={{ ios: 'photo', android: 'image', web: 'image' }}
+              size={28}
+              tintColor={Colors.placeholderIcon}
+            />
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={handleAddToCart}
+          disabled={adding}
+          hitSlop={6}
+          style={({ pressed }) => [styles.dealAdd, (pressed || adding) && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`${COPY.addToCart}: ${product.name}`}
+          accessibilityState={{ disabled: adding, busy: adding }}>
+          {adding ? (
+            <ActivityIndicator color={Colors.dark} size="small" />
+          ) : (
+            <SymbolView
+              name={{ ios: 'plus', android: 'add', web: 'add' }}
+              size={16}
+              tintColor={Colors.dark}
+            />
+          )}
+        </Pressable>
+      </View>
+
+      <Pressable
+        onPress={open}
+        style={({ pressed }) => [styles.dealBody, pressed && styles.pressed]}
+        accessible={false}
+        importantForAccessibility="no-hide-descendants">
+        <Text style={styles.dealName} numberOfLines={2}>
+          {product.name}
+        </Text>
+        <Text style={styles.dealPrice} numberOfLines={1}>
+          {product.priceLabel}
+        </Text>
+        {product.originalPriceLabel && (
+          <Text style={styles.dealOriginalPrice} numberOfLines={1}>
+            {product.originalPriceLabel}
+          </Text>
+        )}
+        {discounted && <Text style={styles.dealDiscount}>{product.discountPct}%</Text>}
+        <Text style={styles.dealSoldBy} numberOfLines={1}>
+          {COPY.soldBy}: {product.sellerName}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -462,5 +587,78 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  dealRows: {
+    gap: 12,
+  },
+  dealRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dealCard: {
+    width: DEAL_CARD_WIDTH,
+    padding: 6,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+  },
+  dealImageWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    // White, like the product photos' own backgrounds (a grey box would frame them).
+    backgroundColor: Colors.white,
+  },
+  dealImage: {
+    ...StyleSheet.absoluteFill,
+  },
+  dealAdd: {
+    position: 'absolute',
+    bottom: 6,
+    end: 6,
+    width: DEAL_ADD_SIZE,
+    height: DEAL_ADD_SIZE,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.inputBorder,
+  },
+  dealBody: {
+    paddingTop: 8,
+    paddingHorizontal: 2,
+  },
+  dealName: {
+    fontFamily: Fonts.primarySemiBold,
+    fontSize: 13,
+    lineHeight: 17,
+    color: Colors.sectionHeading,
+  },
+  dealPrice: {
+    marginTop: 4,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 15,
+    color: Colors.dark,
+  },
+  dealOriginalPrice: {
+    marginTop: 2,
+    fontFamily: Fonts.primary,
+    fontSize: 11,
+    color: Colors.helperText,
+    textDecorationLine: 'line-through',
+  },
+  dealDiscount: {
+    marginTop: 2,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 12,
+    color: Colors.verifiedText,
+  },
+  dealSoldBy: {
+    marginTop: 3,
+    fontFamily: Fonts.primary,
+    fontSize: 10,
+    lineHeight: 13,
+    color: Colors.helperText,
   },
 });

@@ -32,8 +32,6 @@ export const Colors = {
   // Confirmed from the live homepage CSS (yallashuq.com/, `.sm-*` classes).
   pageBackground: '#f0f2f5',
   sectionHeading: '#1a1a1a',
-  /** Solid stand-in for the Flash Deals heading's text gradient (#c0305a → #e05080). */
-  flashHeading: '#c0305a',
   subtleText: '#9a9a9a',
   categoryName: '#333333',
   ratingStar: '#FFD700',
@@ -99,8 +97,6 @@ export const HomeGradients = {
   freeShipping: { colors: ['#1a6fc4', '#2d9cdb', '#56b8f5'], locations: [0, 0.6, 1] },
   warranty: { colors: ['#0f7a55', '#1aac77', '#36d399'], locations: [0, 0.6, 1] },
   giftCards: { colors: ['#6d28d9', '#7c3aed', '#a78bfa'], locations: [0, 0.55, 1] },
-  /** .sm-flash-section (135deg) */
-  flashDeals: { colors: ['#fff0f5', '#fde8f0', '#fdd6e8'], locations: [0, 0.6, 1] },
   /** .sm-tag (135deg) */
   productTag: { colors: ['#ff8a15', '#f26316'], locations: [0, 1] },
   /** Discounted product tag ("SALE -N%") from the live card script (135deg). */

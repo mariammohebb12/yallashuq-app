@@ -17,7 +17,12 @@ import {
 import { addToCart } from '@/api/cart';
 import { fetchCatalogPage, withSectionTag } from '@/api/catalog';
 import { FormMessage } from '@/components/form-message';
-import { ProductGrid, ProductRow, type ProductSummary } from '@/components/product-card';
+import {
+  DealRows,
+  ProductGrid,
+  ProductRow,
+  type ProductSummary,
+} from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
 import { Colors, HomeGradients } from '@/theme/theme';
@@ -132,12 +137,23 @@ export default function HomeScreen() {
   // 'row': one sideways-scrolling row (Flash Deals, Trending Now); 'grid': 2 per row (the full
   // Explore Products listing). Minimal cards either way (client request 2026-09-28 — the live
   // site shows one tall card per row below 640px).
-  function productSection(tag: string, layout: 'row' | 'grid') {
+  function productSection(tag: string, layout: 'row' | 'grid' | 'deals') {
     if (catalog.status === 'loading') {
       return <ActivityIndicator style={styles.sectionLoading} color={Colors.primaryOrange} />;
     }
     if (catalog.status === 'error') {
       return <FormMessage type="error" message={catalog.message} />;
+    }
+    if (layout === 'deals') {
+      // No section badge on the deal cards (client 2026-09-28).
+      return (
+        <DealRows
+          products={catalog.products}
+          bleed={GUTTER}
+          onOpen={openProduct}
+          onAddToCart={handleAddToCart}
+        />
+      );
     }
     const products = withSectionTag(catalog.products, tag);
     return layout === 'row' ? (
@@ -324,20 +340,16 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* ---- Flash Deals ---- */}
-      <LinearGradient
-        colors={HomeGradients.flashDeals.colors}
-        locations={HomeGradients.flashDeals.locations}
-        {...DIAGONAL}
-        style={[styles.section, styles.flashSection]}>
-        <SectionHead
-          title="Flash Deals"
-          link="See All"
-          onLinkPress={openShop}
-          titleStyle={styles.flashHeading}
-        />
-        {productSection('Hot Sale', 'row')}
-      </LinearGradient>
+      {/* ---- Flash Deals ----
+          Client reference (2026-09-28, noon's "Mega Deals"): a peach panel, the centered
+          two-color title, and two rows of compact deal cards (name + "Sold by" added, no badge).
+          No "See All" (the reference has none). */}
+      <View style={[styles.section, styles.flashSection]}>
+        <Text style={styles.flashHeading} accessibilityRole="header">
+          Flash <Text style={styles.flashHeadingAccent}>Deals</Text>
+        </Text>
+        {productSection('', 'deals')}
+      </View>
 
       {/* ---- Trending Now ---- */}
       <View style={styles.section}>
@@ -663,16 +675,25 @@ const styles = StyleSheet.create({
 
   // Full-width tinted band (was an inset card): its heading and cards start at the same gutter
   // as every other section.
+  // Full-bleed peach panel: Light Orange, tinted.
   flashSection: {
     marginHorizontal: -GUTTER,
-    paddingVertical: 16,
+    paddingTop: 18,
+    paddingBottom: 18,
     paddingHorizontal: GUTTER,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255,180,210,0.3)',
+    backgroundColor: 'rgba(255, 179, 107, 0.28)',
   },
   flashHeading: {
-    color: Colors.flashHeading,
+    marginBottom: 14,
+    fontFamily: Fonts.primaryBold,
+    fontSize: 18,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    color: Colors.dark,
+  },
+  flashHeadingAccent: {
+    color: Colors.primaryOrange,
   },
 
   sectionLoading: {
