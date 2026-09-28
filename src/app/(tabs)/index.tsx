@@ -20,7 +20,7 @@ import { FormMessage } from '@/components/form-message';
 import { ProductGrid, ProductRow, type ProductSummary } from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
-import { BrandGradient, Colors, HomeGradients } from '@/theme/theme';
+import { Colors, HomeGradients } from '@/theme/theme';
 
 // Screen 1: Home. Sections, copy and styles mirror the live homepage
 // (yallashuq.com/, `.sm-*` classes), at its mobile breakpoints. Products come from the backend
@@ -304,23 +304,18 @@ export default function HomeScreen() {
                     style={({ pressed }) => [styles.category, pressed && styles.categoryPressed]}
                     accessibilityRole="button"
                     accessibilityLabel={category.name}>
-                    {/* App design (client request 2026-09-28): a card with the brand gradient
-                        filling its top and the name underneath; same corners and border as the
-                        product cards. */}
-                    <View style={styles.categoryCard}>
-                      <LinearGradient
-                        colors={BrandGradient.colors}
-                        locations={BrandGradient.locations}
-                        {...DIAGONAL}
-                        style={styles.categoryImage}>
-                        <SymbolView name={category.icon} size={34} tintColor={Colors.white} />
-                      </LinearGradient>
-                      <View style={styles.categoryNameBox}>
-                        <Text style={styles.categoryName} numberOfLines={2}>
-                          {category.name}
-                        </Text>
-                      </View>
-                    </View>
+                    {/* Client reference (2026-09-28, noon's "Shop by category"): a rounded tile
+                        with an orange → pale vertical gradient and the picture on it; the name
+                        underneath, outside the tile. Brand colors instead of noon's. */}
+                    <LinearGradient
+                      colors={[Colors.primaryOrange, Colors.lightOrange, Colors.photoPreviewBackground]}
+                      locations={[0, 0.35, 0.85]}
+                      style={styles.categoryTile}>
+                      <SymbolView name={category.icon} size={44} tintColor={Colors.dark} />
+                    </LinearGradient>
+                    <Text style={styles.categoryName} numberOfLines={2}>
+                      {category.name}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -634,54 +629,34 @@ const styles = StyleSheet.create({
   },
   categoryScroll: {
     paddingHorizontal: GUTTER,
-    // Room for the cards' shadows (the scroller clips at its edges).
-    paddingVertical: 6,
   },
   categoryRows: {
-    gap: 10, // .sm-cats gap: 10px
+    gap: 14,
   },
   categoryRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 18,
   },
   // Fixed width: about 3⅓ tiles visible on a phone, so the cut-off 4th shows there's more.
-  // Outer view carries the soft shadow (the app's usual 0.06 / 6 / 2); the inner card clips.
   category: {
-    width: 112,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    width: 96,
+    alignItems: 'center',
   },
   categoryPressed: {
     opacity: 0.85,
   },
-  // Same corners and hairline border as the product / Smart Search cards.
-  categoryCard: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-  },
-  categoryImage: {
-    height: 84,
+  categoryTile: {
+    width: 96,
+    height: 96,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryNameBox: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
   categoryName: {
-    fontFamily: Fonts.primaryBold,
-    fontSize: 12,
-    lineHeight: 15,
+    marginTop: 8,
+    fontFamily: Fonts.primary,
+    fontSize: 13,
+    lineHeight: 16,
     textAlign: 'center',
     color: Colors.categoryName,
   },
