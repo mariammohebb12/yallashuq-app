@@ -53,6 +53,54 @@ that sometimes fails.
 resting. Please check back later!"*. Keyword product results are still attached ("microwave" →
 Microwave Oven), so staging does plain keyword matching only. The refund request caused no action.
 
+## Human handoff (added 2026-09-28)
+
+**Asking MishMesh for a human never hands off.** Tested as a guest:
+
+| Message | Live | Staging |
+|---|---|---|
+| "I need to speak to a person" | 21 s → *"Hi! I am MishMesh. I'm having a bit of trouble connecting to my knowledge base right now I've found some products for you below!"* — 0 products | "I'm currently resting" |
+| "connect me to support" | 20 s → same fallback + Wireless Bluetooth Headphones (matched on "support") | "I'm currently resting" + Badminton Racket |
+
+No reply ever contains `mode: "human"` — the signal the website's own script
+(`/mishmesh_helpdesk_support/static/src/js/mishmesh_support.js`) waits for to switch the popup into
+a support chat.
+
+**A real handoff mechanism does exist, but only outside the chat** (addon
+`mishmesh_helpdesk_support`):
+
+- **Entry point:** My Orders (`/my/orders`) shows a **"SUPPORT"** button on every order. It opens a
+  "Need Support" modal ("Direct Contact admin-yallashaq@yopmail.com"; fields Subject, Name, Email,
+  Phone, Details) that posts an HTML form to **`POST /my/orders/<order_id>/mishmesh_support`**
+  (`csrf_token, subject, name, email, phone, message`; `GET` → 405). Individual order pages have
+  no such button.
+- **Session routes** (JSON-RPC; the website polls status every 8 s):
+
+| Route | Params | Reply |
+|---|---|---|
+| `/mishmesh/support/status` | `{}` | `{active: false}`, or `{active: true, channel_id, ticket_id, ticket_name, is_accepted}` |
+| `/mishmesh/support/messages` | `{channel_id, after_id}` | `{active, channel_id, ticket_id, messages: [{id, body, author, is_customer}]}` |
+| `/mishmesh/support/send` | `{channel_id, message}` | `{status: "success"}` or `{status: "error", message}` |
+
+**Real test on staging (test customer, one submission, marked "App test – please ignore"):**
+order S00073 → `303` to `/my/orders?mishmesh_support_ticket=24`, and:
+
+- a **Helpdesk ticket #24** "App test – please ignore (#24)" was created, stage **New**, listed
+  under the customer's `/my/tickets` (count 0 → 1), page `/helpdesk/ticket/24` showing "Order
+  Support Request — Order: S00073" with the form's details;
+- `/mishmesh/support/status` → `{"active": true, "channel_id": 24, "ticket_id": 24,
+  "ticket_name": "App test – please ignore (#24)", "is_accepted": false}` (the website shows this
+  as "Awaiting Agent");
+- `/mishmesh/support/messages` → `messages: []` (the form's message is on the ticket, not in the
+  chat);
+- `/mishmesh/support/send` from the customer → `{"status": "error", "message": "No active support
+  session found."}` while not accepted — so the customer can't write until an agent accepts
+  (presumably; not confirmed from outside);
+- a guest gets `active: false` for channel 24 and can't send (ownership enforced);
+- the MishMesh chat itself still answered "I'm currently resting" during the session.
+
+**Staging cleanup needed:** ticket #24 is a test ticket — please close it.
+
 ## The problems
 
 1. **Staging has no AI** — only keyword matching behind a "resting" message, so nothing
@@ -68,6 +116,11 @@ Microwave Oven), so staging does plain keyword matching only. The refund request
    catalog has no chairs.
 5. **No timeout / error message**: the route can hang for 90 s instead of answering or failing
    cleanly.
+6. **No handoff from the chat**: asking MishMesh for a person gives a canned reply and unrelated
+   products. The real support session (ticket + chat) can only be started from the separate
+   "SUPPORT" button in My Orders, which is completely disconnected from the conversation. Also,
+   once a session exists the customer can't send a message until an agent accepts it, and the
+   order support form is HTML-only (needs a scraped CSRF token).
 
 ## Request
 
@@ -85,6 +138,15 @@ decision before code is changed:
    app to offer "Talk to support" when MishMesh can't help.
 5. Replace or remove the example prompt ("I want chairs for my dining room") with ones the catalog
    can answer, or make the examples configurable.
+6. **Handoff from the chat:** when the customer asks for a person (or MishMesh can't help), start
+   the real support session — the same ticket + channel the order "SUPPORT" form creates — and
+   return `mode: "human"` (plus `channel_id` / `ticket_id`) in the `/inventory_engine/chat` reply,
+   so the existing `/mishmesh/support/status`, `/mishmesh/support/messages` and
+   `/mishmesh/support/send` routes take over. Guests: ask them to sign in (or collect contact
+   details) rather than silently failing. Please also say whether the customer should be able to
+   write before an agent accepts (today `send` refuses).
+7. Additive: a JSON-RPC version of the order support form (`order_id, subject, message` →
+   `{ticket_id, channel_id}` or errors), so the app doesn't have to scrape the CSRF token.
 
 ## Acceptance criteria
 
@@ -94,6 +156,13 @@ decision before code is changed:
    pointer to the right page or to human support, and nothing is performed.
 4. The popup's example prompts return real products.
 5. The existing keyword product results keep working as today.
+6. Asking MishMesh "I need to speak to a person" / "connect me to support" (signed in) no longer
+   gives a canned product-search reply: it starts a real support session (ticket + channel) and
+   the reply says so with `mode: "human"`. Right after, `/mishmesh/support/status` returns
+   `active: true` with that `channel_id` / `ticket_id`, and `/mishmesh/support/messages` and
+   `/mishmesh/support/send` work for that session (the customer can post a message and read the
+   agent's reply).
+7. The order "SUPPORT" button in My Orders keeps working as today.
 
 ## Mobile app side (for reference)
 
