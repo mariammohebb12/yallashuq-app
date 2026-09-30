@@ -117,8 +117,12 @@ Core flow order: Home → Shop → Product → Cart → Checkout (Address → Pa
 - [ ] Customer support: chat, tickets, ticket status, AI-to-human handover
 
 ## Known Blockers / Open Items
-- Order tracking detail, notifications, saved address book, and seller/store public profile
-  pages are not yet confirmed on the live site — do not build until confirmed with real data.
+- Notifications, saved address book, and seller/store public profile pages are not yet confirmed
+  on the live site — do not build until confirmed with real data.
+- Order tracking detail: built 2026-09-30 on the user's explicit go-ahead
+  (`src/app/my/orders/[id]/tracking.tsx`, `src/api/delivery-tracking.ts`) against the pasted
+  /api/delivery/track contract — NOT yet verified with real data (staging still runs the old fake
+  stub that always says "shipped"). Verify with a real shipment before relying on it.
 - Seller-side screens (Dashboard, Inventory, Seller Orders, etc.) are NOT in the original
   37-screen customer scope — separate, later phase.
 - Automatic provider-side refunds are NOT currently supported by Sumit/Lahza config — refunds

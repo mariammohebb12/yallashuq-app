@@ -77,6 +77,7 @@ const COPY = {
   // PLACEHOLDER COPY (not confirmed anywhere).
   sku: 'SKU:',
   trackingNumber: 'Tracking number:',
+  track: 'Track',
   notFound: 'This order could not be found.',
 };
 
@@ -214,6 +215,16 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
               )}
             </View>
           ))}
+          {/* Opens the tracking screen (src/app/my/orders/[id]/tracking.tsx). */}
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/my/orders/[id]/tracking', params: { id: String(order.id) } })
+            }
+            hitSlop={8}
+            accessibilityRole="link"
+            style={styles.inlineLink}>
+            <Text style={styles.link}>{COPY.track}</Text>
+          </Pressable>
         </Section>
       )}
 
