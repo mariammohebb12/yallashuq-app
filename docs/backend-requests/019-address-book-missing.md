@@ -1,6 +1,6 @@
 # Backend request 019 — Customer address book (list, add, edit, delete) is missing
 
-**Status:** Open — blocks the mobile app's standalone address book screen (not built)
+**Status:** Open — blocks the mobile app's standalone address book screen (not built). Updated 2026-09-30: delete added on production; list still missing
 **Requested:** 2026-09-28
 **For:** whoever takes over YallaShuq backend development
 
@@ -48,6 +48,32 @@ Tested on staging with the test customer (nothing changed):
 | Edit another customer's address (`partner_id=3`) | 403 |
 | Re-save own address (partner 66) with identical values | `{"successUrl": "/shop/checkout"}` |
 | `/shop/update_address` with another customer's partner | Forbidden (staging also leaks a full Python traceback) |
+
+## Update 2026-09-30 — delete route added, list still missing
+
+A delete route now exists **on production only**, as relayed by the project owner:
+`POST /my/address/delete` (form-encoded, takes `address_id`; redirects to
+`/my/addresses?address_deleted=1`, or `/my/addresses?error=cannot_delete_primary` for the main
+contact). Checked 2026-09-30:
+
+| Route | Staging | Production |
+|---|---|---|
+| `/my/address/delete` | 404 | exists (GET → 405, i.e. POST only) |
+| `/my/addresses` (HTML list) | 404 | **404** (a real signed-in route would redirect to login) |
+| JSON list — tried `/my/addresses/json`, `/my/address/json`, `/api/my/addresses`, `/my/addresses/list` (JSON-RPC, signed in on staging) | 404 | 404 |
+
+So:
+
+- **Gap 1 (list) is still open, and now blocks delete too**: the app has no way to get the
+  `address_id`s a customer could delete. Route 1 below is still needed; the delete route can't be
+  used without it.
+- **The delete route redirects to a page that doesn't exist**: `/my/addresses` is a 404 on
+  production, so a website user who deletes an address lands on "Page Not Found". Either add the
+  `/my/addresses` page or redirect somewhere that exists.
+- Delete is form-post + redirect (needs a `csrf_token`), not JSON — item 4 below still asks for a
+  JSON reply. Please confirm it **archives** (not hard-deletes) and refuses other customers'
+  addresses (403), per the acceptance criteria.
+- Not deployed on staging yet, so none of it can be tested safely.
 
 ## The gaps
 
