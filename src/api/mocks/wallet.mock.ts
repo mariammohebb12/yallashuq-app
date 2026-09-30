@@ -2,8 +2,9 @@ import type { WalletOption, WalletSummary } from '../wallet';
 
 /*
  * ⚠️ TEMPORARY MOCK WALLET — NOT REAL, DO NOT SHIP ⚠️
- * TODO: replace with a real wallet route once one exists (no JSON route for the wallet on
- * staging, checked 2026-09-27), then delete this file.
+ * Only used as a labelled fallback while /my/wallet/json isn't deployed on the server (staging,
+ * checked 2026-09-30) — see src/api/wallet.ts. Delete mockWallet once the real route is verified
+ * end-to-end everywhere. mockWithdrawWallets is still used: no route lists withdraw options.
  *
  * The staging test customer's real /my/wallet shows ₪ 0.00 and "No transactions found.", so
  * every value here is made up so the layout isn't empty. The row fields (date, description,
@@ -13,6 +14,12 @@ import type { WalletOption, WalletSummary } from '../wallet';
 export function mockWallet(): WalletSummary {
   return {
     balanceFormatted: '₪ 250.00',
+    frozenBalanceFormatted: null,
+    dailyLimitFormatted: null,
+    walletStatus: null,
+    page: 1,
+    pageCount: 1,
+    totalCount: 4,
     transactions: [
       {
         id: -1,

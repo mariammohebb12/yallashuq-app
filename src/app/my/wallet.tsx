@@ -12,10 +12,9 @@ import { Colors } from '@/theme/theme';
 /*
  * Screen: eWallet — the live /my/wallet page (opened from the Account tab's eWallet card).
  *
- * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * No JSON route for the wallet yet (see src/api/wallet.ts); fetchWallet returns sample data and
- * this screen shows a visible "sample data" banner. When a route ships, only src/api/wallet.ts
- * changes.
+ * Real data from /my/wallet/json (see src/api/wallet.ts) — NOT yet tested end-to-end. Where that
+ * route isn't deployed (staging, 2026-09-30) fetchWallet returns sample data and this screen
+ * shows a visible "sample data" banner.
  *
  * Same sections as the live page, in one column: the balance card ("Available Balance" + amount +
  * the two buttons), then "Transaction History" with the From/To date filter, Filter and Clear,
