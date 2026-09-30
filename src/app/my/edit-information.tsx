@@ -30,8 +30,9 @@ import { Colors } from '@/theme/theme';
  * the live /my/account form's own pre-filled inputs (src/api/profile.ts, TEMPORARY HTML
  * workaround) — the backend's split of the full name, not one guessed here.
  * Deliberately NOT here: the live page's "Change Password" section (/my/account/change_password)
- * and the intro "Manage your profile, address details, and password in one place." — which of the
- * two live password forms is authoritative is still open; passwords stay on the Security screen.
+ * and the intro "Manage your profile, address details, and password in one place." Passwords
+ * belong to the Security screen: /my/security is the authoritative form (decided by Basem/Mariam
+ * 2026-09-30 — Odoo's core page, safe across Odoo upgrades), even though the custom route works.
  */
 
 const COPY = {

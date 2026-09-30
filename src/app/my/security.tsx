@@ -14,16 +14,24 @@ import { Colors } from '@/theme/theme';
  *
  * ⚠️ NOTHING HERE WORKS YET — EVERY FIELD AND BUTTON IS DISABLED ⚠️
  * The live actions are real and consequential (change password, enable 2FA, log out from all
- * devices, delete account), and the app doesn't call any of their routes yet (live: HTML form
+ * devices, deactivate account), and the app doesn't call any of their routes yet (live: HTML form
  * posts to /my/security and /my/deactivate_account; 2FA and "log out from all devices" are
  * Odoo dialogs). So nothing can be typed, tapped or submitted: no fake success, no silent no-op.
  *
  * The live page's sections, in its order, in one column: Change Password; Two-factor
- * authentication; Revoke All Sessions; Delete Account (the live confirmation popup's contents are
- * shown inline, since its button can't open it). No login history or session list — the live
+ * authentication; Revoke All Sessions; Deactivate Account (the live confirmation popup's contents
+ * are shown inline, since its button can't open it). No login history or session list — the live
  * page has neither.
  * The 2FA status line is the staging test account's real state ("not enabled"); the app can't read
  * a user's 2FA status yet.
+ *
+ * Change Password: /my/security is the authoritative form (decided by Basem/Mariam 2026-09-30 —
+ * it's Odoo's core page, so it survives an Odoo upgrade), not the custom
+ * /my/account/change_password.
+ *
+ * "Deactivate Account" (live: "Delete Account") — renamed on purpose (decided 2026-09-30):
+ * /my/deactivate_account only ARCHIVES the account (login blocked); it deletes no data, order
+ * history or partner record (see docs/backend-requests/017-account-deletion-effect.md).
  */
 
 const COPY = {
@@ -38,12 +46,14 @@ const COPY = {
   enableTwoFactor: 'Enable two-factor authentication',
   revokeAllSessions: 'Revoke All Sessions',
   logOutAllDevices: 'Log out from all devices',
-  deleteAccount: 'Delete Account',
   deleteWarning: 'Disable your account, preventing any further login.',
   cannotBeUndone: 'This action cannot be undone.',
   deleteStep1: '1. Enter your password to confirm you own this account',
+  // Changed from the live page's "Delete Account" / "delete your account" (see top of file): the
+  // backend only deactivates (archives) the account.
+  deleteAccount: 'Deactivate Account',
   deleteStep2: (login: string) =>
-    `2. Confirm you want to delete your account by copying down your login (${login}).`,
+    `2. Confirm you want to deactivate your account by copying down your login (${login}).`,
   passwordPlaceholder: 'Password',
   blockList: "Put my email and phone in a block list to make sure I'm never contacted again",
   // PLACEHOLDER COPY (not confirmed anywhere).
@@ -100,7 +110,7 @@ export default function SecurityScreen() {
             <DisabledButton label={COPY.logOutAllDevices} />
           </Card>
 
-          {/* ---- Delete Account (the live popup's contents, inline) ---- */}
+          {/* ---- Deactivate Account (the live "Delete Account" popup's contents, inline) ---- */}
           <Card title={COPY.deleteAccount}>
             <Text style={styles.warning}>{COPY.deleteWarning}</Text>
             <Text style={styles.warning}>{COPY.cannotBeUndone}</Text>
