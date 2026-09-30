@@ -168,7 +168,14 @@ export type OrderDetail = OrderSummary & {
 };
 
 export type OrdersResult =
-  | { ok: true; orders: OrderSummary[]; isSampleData: boolean }
+  | {
+      ok: true;
+      orders: OrderSummary[];
+      isSampleData: boolean;
+      /** More pages after this one (the backend's page < page_count). */
+      hasNext: boolean;
+      nextPage: number;
+    }
   | { ok: false; message: string };
 
 export type OrderResult =
@@ -285,22 +292,38 @@ function mapDetail(order: OrderJsonResponse): OrderDetail {
   };
 }
 
-/** REAL (untested end-to-end, see top of file): the first page of the customer's orders. */
-export async function fetchOrders(): Promise<OrdersResult> {
+/**
+ * REAL (untested end-to-end, see top of file): one page of the customer's orders, newest first.
+ * The page size is the backend's (not in the contract); `hasNext` comes from its page_count.
+ */
+export async function fetchOrders(page = 1): Promise<OrdersResult> {
   let data: OrdersJsonResponse;
   try {
-    data = await odooJsonRpc<OrdersJsonResponse>('/my/orders/json', { page: 1 });
+    data = await odooJsonRpc<OrdersJsonResponse>('/my/orders/json', { page });
   } catch (error) {
     // A non-JSON reply (SyntaxError) is the 404 HTML page of a server without the route.
     if (error instanceof SyntaxError) {
-      return { ok: true, orders: mockOrderList().map(withImageUrl), isSampleData: true };
+      return {
+        ok: true,
+        orders: mockOrderList().map(withImageUrl),
+        isSampleData: true,
+        hasNext: false,
+        nextPage: 1,
+      };
     }
     return { ok: false, message: errorMessage(error) };
   }
   if (data?.status !== 'success' || !Array.isArray(data.orders)) {
     return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
   }
-  return { ok: true, orders: data.orders.map(mapSummary), isSampleData: false };
+  const currentPage = typeof data.page === 'number' ? data.page : page;
+  return {
+    ok: true,
+    orders: data.orders.map(mapSummary),
+    isSampleData: false,
+    hasNext: typeof data.page_count === 'number' && currentPage < data.page_count,
+    nextPage: currentPage + 1,
+  };
 }
 
 /** REAL (untested end-to-end, see top of file). */

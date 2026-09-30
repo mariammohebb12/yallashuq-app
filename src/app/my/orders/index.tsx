@@ -1,8 +1,16 @@
 import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { fetchOrders, type OrderSummary } from '@/api/orders';
 import { FormMessage } from '@/components/form-message';
@@ -20,6 +28,13 @@ import { Colors } from '@/theme/theme';
  * have no product thumbnail and no "Return" link yet (not in that route; see #005). Where the route
  * isn't deployed (staging, 2026-09-30) fetchOrders returns sample data and this screen shows a
  * visible "sample data" banner.
+ *
+ * Paging: the route returns one page at a time; "Load More" (same button, copy and behaviour as the
+ * Shop tab's) fetches the next page until page_count is reached. No order total is shown.
+ * KNOWN (2026-09-30, not fixed yet): this screen reloads from page 1 every time it's shown, so
+ * pages added with "Load More" are lost after opening an order and coming back. The Shop tab
+ * keeps its loaded pages (it only reloads on pull-to-refresh) — inconsistent; decide with real
+ * data before changing either.
  *
  * Same fields as the live page's table (Sales Order #, Order Date, Total, Return, Feedback &
  * Support), reflowed into one stacked card per order for phone width: order number (title), date
@@ -40,12 +55,21 @@ const COPY = {
   heading: 'Sales Orders',
   // PLACEHOLDER COPY (standard Odoo portal wording, not confirmed on yallashuq.com).
   empty: 'There are currently no orders for your account.',
+  // Same as the Shop tab (confirmed from the live homepage catalog's button).
+  loadMore: 'Load More',
+  loading: 'Loading...',
 };
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; orders: OrderSummary[]; isSampleData: boolean };
+  | {
+      status: 'ready';
+      orders: OrderSummary[];
+      isSampleData: boolean;
+      hasNext: boolean;
+      nextPage: number;
+    };
 
 type Popup = { title: string; detail: string } | null;
 
@@ -54,7 +78,16 @@ export default function MyOrdersScreen() {
   const [popup, setPopup] = useState<Popup>(null);
   const [reviewOrderId, setReviewOrderId] = useState<number | null>(null);
   const [supportOrderName, setSupportOrderName] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     const id = ++requestId.current;
@@ -62,9 +95,16 @@ export default function MyOrdersScreen() {
     if (id !== requestId.current) {
       return;
     }
+    setLoadingMore(false);
     setState(
       result.ok
-        ? { status: 'ready', orders: result.orders, isSampleData: result.isSampleData }
+        ? {
+            status: 'ready',
+            orders: result.orders,
+            isSampleData: result.isSampleData,
+            hasNext: result.hasNext,
+            nextPage: result.nextPage,
+          }
         : { status: 'error', message: result.message }
     );
   }, []);
@@ -77,6 +117,38 @@ export default function MyOrdersScreen() {
       };
     }, [load])
   );
+
+  // Same flow as the Shop tab's loadMore.
+  async function loadMore() {
+    if (state.status !== 'ready' || !state.hasNext || loadingMore) {
+      return;
+    }
+    const id = requestId.current; // A refresh on focus supersedes this page.
+    setLoadingMore(true);
+    const result = await fetchOrders(state.nextPage);
+    if (!mounted.current || id !== requestId.current) {
+      return;
+    }
+    setLoadingMore(false);
+    if (!result.ok) {
+      Alert.alert(result.message); // PLACEHOLDER UI, as on the Shop tab.
+      return;
+    }
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            // Skip anything already listed, in case orders changed between pages.
+            orders: [
+              ...current.orders,
+              ...result.orders.filter((o) => !current.orders.some((c) => c.id === o.id)),
+            ],
+            hasNext: result.hasNext,
+            nextPage: result.nextPage,
+          }
+        : current
+    );
+  }
 
   return (
     <View style={styles.page}>
@@ -108,6 +180,16 @@ export default function MyOrdersScreen() {
                 />
               ))}
             </View>
+          )}
+          {state.status === 'ready' && state.hasNext && (
+            <Pressable
+              onPress={loadMore}
+              disabled={loadingMore}
+              style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityState={{ busy: loadingMore }}>
+              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
+            </Pressable>
           )}
         </ScrollView>
       )}
@@ -296,5 +378,22 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  // Same look as the Shop tab's "Load More".
+  loadMore: {
+    alignSelf: 'center',
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(242,178,119,0.5)',
+    backgroundColor: 'rgb(255,244,230)',
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  loadMoreText: {
+    fontFamily: Fonts.primaryBold,
+    fontSize: 12,
+    color: Colors.loadMoreText,
   },
 });
