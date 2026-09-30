@@ -22,10 +22,11 @@ import { Colors } from '@/theme/theme';
  * Screen: Order detail — the live /my/orders/<id> page (opened from My Orders).
  *
  * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * There's no JSON route for an order's detail (the live page is HTML only). fetchOrder returns
- * sample data (src/api/mocks/orders.mock.ts) until docs/backend-requests/005-orders-json.md is
- * built; the "sample data" banner stays pinned at the top while scrolling. When the route ships,
- * only src/api/orders.ts changes.
+ * Real data from /my/orders/<id>/json (see src/api/orders.ts) — NOT yet tested end-to-end. That
+ * route covers only part of this screen: with real data the status badge, payment banner, address
+ * details, taxes, deliveries (and so the "Track" link), terms, payment terms and returns are left
+ * out (their fields are null/empty). Where the route isn't deployed (staging, 2026-09-30),
+ * fetchOrder returns sample data and the "sample data" banner stays pinned at the top.
  *
  * The live page's sections, in one column: header (order number + status), the "payment
  * successfully processed" banner, Sale Information, Invoicing and Shipping Address, Last Delivery
@@ -153,11 +154,11 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
       {/* ---- Header ---- */}
       <View style={[styles.card, styles.headerRow]}>
         <Text style={styles.title}>{COPY.title(order.name)}</Text>
-        <StatusBadge status={order.status} />
+        {order.status !== null && <StatusBadge status={order.status} />}
       </View>
 
       {/* ---- Payment banner: only when the backend says paid ---- */}
-      {order.paymentStatus.code === 'paid' && (
+      {order.paymentStatus?.code === 'paid' && (
         <View style={styles.paidBanner} accessibilityRole="alert">
           <SymbolView
             name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
@@ -215,7 +216,10 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
               )}
             </View>
           ))}
-          {/* Opens the tracking screen (src/app/my/orders/[id]/tracking.tsx). */}
+          {/* Opens the tracking screen (src/app/my/orders/[id]/tracking.tsx).
+              NOT A BUG that this never shows on a real order (2026-09-30): this whole section needs
+              `deliveries`, and /my/orders/<id>/json doesn't return any (requested in #005). Until
+              it does, only sample orders reach the tracking screen. */}
           <Pressable
             onPress={() =>
               router.push({ pathname: '/my/orders/[id]/tracking', params: { id: String(order.id) } })
@@ -234,7 +238,9 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
           <ProductLine key={line.id} line={line} />
         ))}
         <View style={styles.totals}>
-          <AmountRow label={COPY.untaxed} value={order.totals.untaxedFormatted} />
+          {order.totals.untaxedFormatted !== null && (
+            <AmountRow label={COPY.untaxed} value={order.totals.untaxedFormatted} />
+          )}
           {order.totals.taxGroups.map((group) => (
             <AmountRow key={group.label} label={group.label} value={group.amountFormatted} />
           ))}
@@ -282,7 +288,9 @@ function OrderBody({ order, onReturn }: { order: OrderDetail; onReturn: () => vo
         </View>
       </Section>
 
-      {order.returns.length > 0 ? (
+      {/* Real data doesn't say (yet) whether the order has returns or is returnable: neither the
+          list nor the button is shown then. */}
+      {order.returns === null ? null : order.returns.length > 0 ? (
         /* ---- Existing return requests (replaces the button when the order has any) ---- */
         <Section title={COPY.previousReturns}>
           {order.returns.map((orderReturn) => (
@@ -363,7 +371,7 @@ function ProductLine({ line }: { line: OrderLine }) {
       {line.sku !== null && <LabelValue label={COPY.sku} value={line.sku} />}
       <LabelValue label={COPY.quantity} value={line.quantityFormatted} />
       <LabelValue label={COPY.unitPrice} value={line.priceUnitFormatted} />
-      <LabelValue label={COPY.taxes} value={line.taxesLabel} />
+      {line.taxesLabel !== null && <LabelValue label={COPY.taxes} value={line.taxesLabel} />}
       <AmountRow label={COPY.amount} value={line.amountFormatted} />
     </View>
   );

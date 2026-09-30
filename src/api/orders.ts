@@ -1,4 +1,4 @@
-import { NETWORK_ERROR_MESSAGE } from './messages';
+import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockOrderDetail, mockOrderList } from './mocks/orders.mock';
 import { odooJsonRpc } from './odoo-client';
 import { productImageUrl } from './product-image-overrides';
@@ -7,19 +7,31 @@ import { productImageUrl } from './product-image-overrides';
  * ---------------------------------------------------------------------------------------------
  * My Orders (list + detail).
  *
- * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * No existing route returns a customer's orders as JSON: /my/orders and /my/orders/<id> are
- * server-rendered HTML only (checked on staging 2026-09-26). Requested in
- * docs/backend-requests/005-orders-json.md. Until those routes exist, fetchOrders / fetchOrder
- * return SAMPLE DATA (src/api/mocks/orders.mock.ts) shaped like the requested response
- * (camelCased; amounts are the backend's formatted strings — nothing is calculated in the app).
+ * REAL CONTRACT, NOT YET TESTED END-TO-END. JSON-RPC routes from yallashuq_seller/controllers/
+ * orders.py (commit df4de4c, production only), as pasted by the user (requested in
+ * docs/backend-requests/005-orders-json.md):
+ * - /my/orders/json {page} → {status, page, page_count, total_count, orders: [{id, name,
+ *   date_order, state, custom_payment_state, amount_total, currency, line_count}]}
+ * - /my/orders/<id>/json → the same order fields + {partner_name, lines: [{id, name,
+ *   product_uom_qty, price_unit, price_subtotal, price_total, is_extended_warranty}]}
+ * Both are a 404 on staging (checked 2026-09-30); no signed-in production response seen yet.
  *
- * Deliberately NOT used, because staging shows them wrong (see #005, "Bugs found"):
- * - /my/counters' `order_count` (said 1 while the list had 13 orders) — the list's own length is
- *   the only count, and the screen doesn't show one;
- * - the detail page's "payment successfully processed" banner and the invoice's payment status
- *   (both shown at once, contradicting each other) — no payment status is shown until #005
- *   returns one authoritative value.
+ * The contract covers only PART of the detail screen. With real data the app leaves out what it
+ * doesn't return (user decision 2026-09-30) — the fields below are null / empty then:
+ * - status (Packing → Shipped → Delivered): the contract only has Odoo's generic sale.order
+ *   `state` ("sale", ...), and payment only `custom_payment_state`, whose values aren't
+ *   documented — both HIDDEN until confirmed (no badge, no "payment processed" banner);
+ * - seller, address/phone/email (only `partner_name`), taxes (per line and totals; never
+ *   calculated in the app), payment terms, invoices, deliveries (so no "Track" link), terms link,
+ *   return requests and the returnable flag, product images, SKU, units of measure.
+ * Missing fields are listed in #005 (update 2026-09-30).
+ *
+ * Fallback: ONLY when a route isn't there (a non-JSON reply, i.e. staging's 404 page), the
+ * previous SAMPLE DATA is returned (isSampleData: true, with its banner). Any real error
+ * (signed out, network, backend error) is an error state.
+ *
+ * Deliberately NOT used, because staging shows them wrong (see #005, "Bugs found"): /my/counters'
+ * `order_count`, and the HTML page's "payment successfully processed" banner.
  * ---------------------------------------------------------------------------------------------
  */
 
@@ -54,15 +66,16 @@ export type OrderLine = {
   id: number;
   /** As the live page shows it, e.g. "[YO223] Badminton Racket" or "Delivery (John Doe)". */
   name: string;
+  /** Real data: always false (the contract has no delivery flag). */
   isDelivery: boolean;
-  /** e.g. "2.00 Units". */
+  /** e.g. "2.00 Units" (real data: "2.00" — the contract has no unit of measure). */
   quantityFormatted: string;
   /** e.g. "2,000.00", or the backend's own label such as "FREE". */
   priceUnitFormatted: string;
   /** Product's internal reference, e.g. "YO223" (live: "[YO223] Badminton Racket"); null if none. */
   sku: string | null;
-  /** e.g. "18% PA". */
-  taxesLabel: string;
+  /** e.g. "18% PA"; null when unknown (real data: not in the contract). */
+  taxesLabel: string | null;
   /** e.g. "₪ 4,000.00". */
   amountFormatted: string;
 };
@@ -123,27 +136,35 @@ export type OrderReturn = {
   decision: { code: string; label: string } | null;
 };
 
+/** Fields marked "null (real data)" aren't in the orders JSON contract (see top of file). */
 export type OrderDetail = OrderSummary & {
-  status: OrderStatus;
-  /** One seller per order: the backend splits a multi-seller checkout into one order per seller. */
-  seller: OrderSeller;
+  /** null (real data): hidden until the shipping status is returned. */
+  status: OrderStatus | null;
+  /**
+   * One seller per order: the backend splits a multi-seller checkout into one order per seller.
+   * null (real data).
+   */
+  seller: OrderSeller | null;
+  /** Real data: only the name (`partner_name`); no address lines, phone or email. */
   contact: OrderContact;
   lines: OrderLine[];
   totals: {
-    untaxedFormatted: string;
+    /** null (real data). */
+    untaxedFormatted: string | null;
     /** One row per tax group, e.g. { label: "VAT 18%", amountFormatted: "₪ 720.00" }. */
     taxGroups: { label: string; amountFormatted: string }[];
     totalFormatted: string;
   };
-  paymentStatus: OrderPaymentStatus;
+  /** null (real data): hidden until custom_payment_state's values are confirmed. */
+  paymentStatus: OrderPaymentStatus | null;
   /** e.g. "Immediate Payment" (live: "Payment terms: Immediate Payment"); null if none. */
   paymentTermsLabel: string | null;
   invoices: OrderInvoice[];
   deliveries: OrderDelivery[];
   /** Site-relative, e.g. "/terms"; null if none. */
   termsUrl: string | null;
-  /** Return requests already made for this order; empty if none. */
-  returns: OrderReturn[];
+  /** Return requests already made for this order; empty if none; null (real data) = unknown. */
+  returns: OrderReturn[] | null;
 };
 
 export type OrdersResult =
@@ -154,21 +175,151 @@ export type OrderResult =
   | { ok: true; order: OrderDetail | null; isSampleData: boolean }
   | { ok: false; message: string };
 
-/**
- * TEMPORARY: returns the mock list (isSampleData: true).
- * TODO: replace with the order-list route once it exists (docs/backend-requests/005-orders-json.md).
- */
-export async function fetchOrders(): Promise<OrdersResult> {
-  return { ok: true, orders: mockOrderList().map(withImageUrl), isSampleData: true };
+/** Odoo sends `false` for empty fields. */
+type OrderSummaryJson = {
+  id: number;
+  name: string;
+  date_order: string | false;
+  state: string;
+  custom_payment_state: string;
+  amount_total: number;
+  currency: string | false;
+  line_count: number;
+};
+
+type OrdersJsonResponse = {
+  status: 'success' | (string & {});
+  message?: string;
+  page: number;
+  page_count: number;
+  total_count: number;
+  orders: OrderSummaryJson[];
+};
+
+type OrderJsonResponse = OrderSummaryJson & {
+  status: 'success' | (string & {});
+  message?: string;
+  partner_name: string | false;
+  lines: {
+    id: number;
+    name: string;
+    product_uom_qty: number;
+    price_unit: number;
+    price_subtotal: number;
+    price_total: number;
+    is_extended_warranty: boolean;
+  }[];
+};
+
+function formatNumber(amount: number): string {
+  const [whole, cents] = Math.abs(amount).toFixed(2).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${amount < 0 ? '-' : ''}${grouped}.${cents}`;
 }
 
-/**
- * TEMPORARY: returns a mock order (isSampleData: true); `order` is null when the id is unknown.
- * TODO: replace with the order-detail route once it exists (docs/backend-requests/005-orders-json.md).
- */
+/** "₪ 4,720.00" like the live page; any currency other than ILS is shown as its code instead. */
+function formatMoney(amount: number, currency: string | false): string {
+  const value = formatNumber(amount ?? 0);
+  return !currency || currency.toUpperCase() === 'ILS' ? `₪ ${value}` : `${value} ${currency}`;
+}
+
+/** Odoo datetimes are UTC; shown as the live list does: local "MM/DD/YYYY" and "HH:MM:SS". */
+function formatDateTime(value: string | false): { date: string; time: string } {
+  if (!value) {
+    return { date: '', time: '' };
+  }
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+  const date = new Date(value.replace(' ', 'T') + (hasZone ? '' : 'Z'));
+  if (Number.isNaN(date.getTime())) {
+    return { date: value, time: '' };
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    date: `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+  };
+}
+
+function mapSummary(order: OrderSummaryJson): OrderSummary {
+  const { date, time } = formatDateTime(order.date_order);
+  return {
+    id: order.id,
+    name: order.name,
+    dateFormatted: date,
+    timeFormatted: time,
+    totalFormatted: formatMoney(order.amount_total, order.currency),
+    // Not in the contract: no "Return" button on real orders until the backend says so (#005).
+    returnAvailable: false,
+    firstProductImageUrl: null,
+  };
+}
+
+function mapDetail(order: OrderJsonResponse): OrderDetail {
+  return {
+    ...mapSummary(order),
+    status: null,
+    seller: null,
+    contact: { name: order.partner_name || '', addressLines: [], phone: '', email: '' },
+    lines: order.lines.map((line) => ({
+      id: line.id,
+      name: line.name,
+      isDelivery: false,
+      quantityFormatted: formatNumber(line.product_uom_qty),
+      priceUnitFormatted: formatNumber(line.price_unit),
+      sku: null,
+      taxesLabel: null,
+      // price_total (tax included): no tax rows are shown, so the lines add up to the Total.
+      amountFormatted: formatMoney(line.price_total, order.currency),
+    })),
+    totals: {
+      untaxedFormatted: null,
+      taxGroups: [],
+      totalFormatted: formatMoney(order.amount_total, order.currency),
+    },
+    paymentStatus: null,
+    paymentTermsLabel: null,
+    invoices: [],
+    deliveries: [],
+    termsUrl: null,
+    returns: null,
+  };
+}
+
+/** REAL (untested end-to-end, see top of file): the first page of the customer's orders. */
+export async function fetchOrders(): Promise<OrdersResult> {
+  let data: OrdersJsonResponse;
+  try {
+    data = await odooJsonRpc<OrdersJsonResponse>('/my/orders/json', { page: 1 });
+  } catch (error) {
+    // A non-JSON reply (SyntaxError) is the 404 HTML page of a server without the route.
+    if (error instanceof SyntaxError) {
+      return { ok: true, orders: mockOrderList().map(withImageUrl), isSampleData: true };
+    }
+    return { ok: false, message: errorMessage(error) };
+  }
+  if (data?.status !== 'success' || !Array.isArray(data.orders)) {
+    return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  }
+  return { ok: true, orders: data.orders.map(mapSummary), isSampleData: false };
+}
+
+/** REAL (untested end-to-end, see top of file). */
 export async function fetchOrder(id: number): Promise<OrderResult> {
-  const order = mockOrderDetail(id);
-  return { ok: true, order: order && withImageUrl(order), isSampleData: true };
+  let data: OrderJsonResponse;
+  try {
+    data = await odooJsonRpc<OrderJsonResponse>(`/my/orders/${id}/json`, {});
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      // Sample detail only exists for the sample list's ids; `order` is null otherwise.
+      const order = mockOrderDetail(id);
+      return { ok: true, order: order && withImageUrl(order), isSampleData: true };
+    }
+    return { ok: false, message: errorMessage(error) };
+  }
+  if (data?.status !== 'success' || !Array.isArray(data.lines)) {
+    return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  }
+  return { ok: true, order: mapDetail(data), isSampleData: false };
 }
 
 /** The backend sends a site-relative image path (as the catalog does); the app needs a URL. */

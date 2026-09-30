@@ -1,6 +1,6 @@
 # Backend request 005 — JSON endpoints for the customer's order list and order detail
 
-**Status:** Open — blocks the mobile app's My Orders screens (they run on temporary sample data until this ships)
+**Status:** Partly done — list + detail JSON routes shipped on production (commit df4de4c, 2026-09-30), but the detail is missing most fields (see "Update 2026-09-30"); not on staging yet
 **Requested:** 2026-09-26
 **For:** whoever takes over YallaShuq backend development
 
@@ -37,6 +37,32 @@ staging 2026-09-26, signed in as a test customer:
   `/my/orders/review/submit` (Rate Now), `/my/orders/reorder_modal_content` (standard Odoo's
   "order again" data for one order: products only, no status or totals). "Support" posts an
   HTML form to `/my/orders/<id>/mishmesh_support`.
+
+## Update 2026-09-30 — routes shipped, detail still incomplete
+
+Two JSON-RPC routes now exist **on production only** (`yallashuq_seller/controllers/orders.py`,
+commit df4de4c; both a 404 on staging, checked 2026-09-30), as relayed by the project owner:
+
+- `/my/orders/json` → `{status, page, page_count, total_count, orders: [{id, name, date_order,
+  state, custom_payment_state, amount_total, currency, line_count}]}`
+- `/my/orders/<id>/json` → the same order fields + `{partner_name, lines: [{id, name,
+  product_uom_qty, price_unit, price_subtotal, price_total, is_extended_warranty}]}`
+
+The app now uses them. The **list** is covered, apart from the thumbnail and the returnable flag.
+The **detail** only covers the header, customer name, product lines and total — the app leaves
+everything else out with real data. Still needed (add-only), per the "Request" section below:
+
+| Needed | Why |
+|---|---|
+| **Order status** as Packing / Shipped / Delivered (`{code, label}`) | `state` is Odoo's generic sale.order state (`sale`, …), not the shipping progress — the app shows no status badge until this exists |
+| **Payment status**: the list of `custom_payment_state` values and which one means paid (or `{code: "paid" \| "not_paid", label}`) | The app shows the "payment successfully processed" banner only when paid is certain — hidden until confirmed |
+| **Deliveries**: `[{id, name, date, status, tracking}]` | Without them there's no "Last Delivery Orders" section, so the app's **Track** link (to `/api/delivery/track`) can never be reached with a real order |
+| **Seller** `{id, name}` | Multi-seller: legal seller display |
+| **Shipping/invoicing address, phone, email** | Only `partner_name` today |
+| **Taxes**: per line (label) and totals (untaxed + tax groups) | The app must not calculate them (lines show `price_total`, tax included) |
+| **Returnable** flag (list + detail) and **existing return requests** | The list's Return link and the detail's Return / Reschedule button are hidden with real data |
+| **Invoices**, **payment terms**, **terms URL** | Detail sections left out |
+| Line **`product_template_id`**, **SKU**, **unit of measure**, **is_delivery**; list **first product image** | See also **025** |
 
 ## Bugs found (please fix; the app deliberately doesn't rely on these)
 

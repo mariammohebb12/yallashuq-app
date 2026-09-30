@@ -16,11 +16,10 @@ import { Colors } from '@/theme/theme';
 /*
  * Screen: My Orders — the live /my/orders page (opened from the Account tab).
  *
- * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * There's no JSON route for the order list (the live page is HTML only). fetchOrders returns
- * sample data (src/api/mocks/orders.mock.ts) until docs/backend-requests/005-orders-json.md is
- * built, and this screen shows a visible "sample data" banner. When the route ships, only
- * src/api/orders.ts changes.
+ * Real data from /my/orders/json (see src/api/orders.ts) — NOT yet tested end-to-end. Real orders
+ * have no product thumbnail and no "Return" link yet (not in that route; see #005). Where the route
+ * isn't deployed (staging, 2026-09-30) fetchOrders returns sample data and this screen shows a
+ * visible "sample data" banner.
  *
  * Same fields as the live page's table (Sales Order #, Order Date, Total, Return, Feedback &
  * Support), reflowed into one stacked card per order for phone width: order number (title), date
