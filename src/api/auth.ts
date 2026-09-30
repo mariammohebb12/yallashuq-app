@@ -3,7 +3,7 @@ import { setCartQuantity } from '@/state/cart-quantity';
 import { clearCookies } from './cookie-jar';
 import { extractAlert, extractForm, extractHiddenFields } from './html-form';
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
-import { odooRequest } from './odoo-client';
+import { odooJsonRpc, odooRequest, OdooRpcError } from './odoo-client';
 
 /*
  * ============================================================================================
@@ -30,7 +30,12 @@ export type LoginResult =
   /** Backend error message (shown in the red alert). */
   | { kind: 'error'; message: string }
   /** Backend info message, e.g. account not verified and OTP resent (shown in the info alert). */
-  | { kind: 'info'; message: string };
+  | { kind: 'info'; message: string }
+  /**
+   * The account isn't verified: the page came back with `login_otp_required=True` and
+   * `unverified_login` set — the live site's trigger for its login OTP modal (see below).
+   */
+  | { kind: 'otp'; login: string; message?: string };
 
 const LOGIN_FORM_CLASS = 'oe_login_form';
 
@@ -62,7 +67,17 @@ export async function loginWithPassword(login: string, password: string): Promis
       return { kind: 'success', redirect: response.location };
     }
 
-    const alert = extractAlert(await response.text(), LOGIN_FORM_CLASS);
+    const html = await response.text();
+    const alert = extractAlert(html, LOGIN_FORM_CLASS);
+
+    // Same condition as the live login_otp.js widget: the OTP modal opens only when the page
+    // came back with login_otp_required === "True" and a non-empty unverified_login.
+    const returnedForm = extractForm(html, LOGIN_FORM_CLASS);
+    const returnedFields = returnedForm ? extractHiddenFields(returnedForm) : undefined;
+    if (returnedFields?.login_otp_required === 'True' && returnedFields.unverified_login) {
+      return { kind: 'otp', login: returnedFields.unverified_login, message: alert?.message };
+    }
+
     if (alert) {
       return alert.level === 'danger'
         ? { kind: 'error', message: alert.message }
@@ -72,6 +87,53 @@ export async function loginWithPassword(login: string, password: string): Promis
   } catch {
     return { kind: 'error', message: NETWORK_ERROR_MESSAGE };
   }
+}
+
+/*
+ * Login OTP (unverified account) — the live site's yallashuq_seller/static/src/js/login_otp.js
+ * (web.assets_frontend_lazy, checked 2026-09-30 on staging and production):
+ *   - verify: JSON-RPC /web/signup/otp/verify { login, otp_code } → { status: "success",
+ *     redirect } signs the session in; otherwise { message };
+ *   - resend: JSON-RPC /web/signup/otp/resend { login } → { status: "success" } or { message }.
+ * Fallback messages are that script's own strings. NOT TESTED END-TO-END: triggering this needs
+ * an unverified account, and creating one on staging is blocked (signup OTP: WhatsApp not
+ * configured, emails not arriving — see CLAUDE.md).
+ */
+export type LoginOtpResult = { ok: true } | { ok: false; message: string };
+
+async function loginOtpCall(
+  path: string,
+  params: object,
+  fallback: string,
+  connectionError: string
+): Promise<LoginOtpResult> {
+  try {
+    const result = await odooJsonRpc<{ status?: string; message?: string } | null>(path, params);
+    return result?.status === 'success' ? { ok: true } : { ok: false, message: result?.message || fallback };
+  } catch (error) {
+    // Live: a JSON-RPC error reply has no `result`, so the script shows its fallback; only a
+    // failed request shows the connection message.
+    return { ok: false, message: error instanceof OdooRpcError ? fallback : connectionError };
+  }
+}
+
+/** On success the session is signed in (the live page then goes to `redirect`, default /my). */
+export function verifyLoginOtp(login: string, code: string): Promise<LoginOtpResult> {
+  return loginOtpCall(
+    '/web/signup/otp/verify',
+    { login, otp_code: code },
+    'Invalid code',
+    'Connection error. Please try again.'
+  );
+}
+
+export function resendLoginOtp(login: string): Promise<LoginOtpResult> {
+  return loginOtpCall(
+    '/web/signup/otp/resend',
+    { login },
+    'Failed to resend',
+    'Error resending code.'
+  );
 }
 
 /*

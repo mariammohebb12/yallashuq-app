@@ -15,15 +15,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { loginWithPassword } from '@/api/auth';
+import { loginWithPassword, resendLoginOtp, verifyLoginOtp } from '@/api/auth';
 import { REQUIRED_MESSAGE } from '@/components/form-fields';
 import { FormMessage } from '@/components/form-message';
+import { OtpModal } from '@/components/otp-modal';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
 // Screen 5: Login. Layout, copy and styles mirror yallashuq.com/web/login.
 // Submits to the Odoo backend via loginWithPassword (see src/api/auth.ts — currently a TEMPORARY
 // HTML-scraping workaround). Error/info messages shown here are the backend's own text.
+// Unverified account: when the backend returns the page with login_otp_required=True and an
+// unverified_login (the live site's trigger), the login OTP modal opens, as on the website.
+// NOT TESTED END-TO-END (no unverified test account can be created on staging right now).
 type LoginScreenProps = {
   /**
    * Set when Login is shown inside the Account tab (signed out) instead of as its own screen:
@@ -43,6 +47,8 @@ export default function LoginScreen({ onSignedIn }: LoginScreenProps = {}) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
   const [infoMessage, setInfoMessage] = useState<string>();
+  /** The unverified login the OTP modal is open for (undefined = closed). */
+  const [otpLogin, setOtpLogin] = useState<string>();
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -76,17 +82,49 @@ export default function LoginScreen({ onSignedIn }: LoginScreenProps = {}) {
     setSubmitting(false);
 
     if (result.kind === 'success') {
-      // Confirmed: land on the Home tab after login.
-      if (onSignedIn) {
-        onSignedIn();
-      } else {
-        router.replace('/');
-      }
+      finishSignIn();
+    } else if (result.kind === 'otp') {
+      setInfoMessage(result.message);
+      setOtpLogin(result.login);
     } else if (result.kind === 'info') {
       setInfoMessage(result.message);
     } else {
       setErrorMessage(result.message);
     }
+  }
+
+  function finishSignIn() {
+    // Confirmed: land on the Home tab after login.
+    if (onSignedIn) {
+      onSignedIn();
+    } else {
+      router.replace('/');
+    }
+  }
+
+  async function handleOtpVerify(code: string): Promise<string | undefined> {
+    if (!otpLogin) {
+      return undefined;
+    }
+    const result = await verifyLoginOtp(otpLogin, code);
+    if (!result.ok) {
+      return result.message;
+    }
+    // Verified: the backend signed this session in (the live page goes to its redirect).
+    if (mounted.current) {
+      setOtpLogin(undefined);
+      setInfoMessage(undefined);
+      finishSignIn();
+    }
+    return undefined;
+  }
+
+  async function handleOtpResend(): Promise<string | undefined> {
+    if (!otpLogin) {
+      return undefined;
+    }
+    const result = await resendLoginOtp(otpLogin);
+    return result.ok ? undefined : result.message;
   }
 
   return (
@@ -221,6 +259,14 @@ export default function LoginScreen({ onSignedIn }: LoginScreenProps = {}) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <OtpModal
+        visible={otpLogin !== undefined}
+        variant="login"
+        target={otpLogin ?? ''}
+        onVerify={handleOtpVerify}
+        onResend={handleOtpResend}
+        onClose={() => setOtpLogin(undefined)}
+      />
     </SafeAreaView>
   );
 }
