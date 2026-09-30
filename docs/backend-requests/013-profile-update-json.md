@@ -131,6 +131,10 @@ curl -s -b $J -H 'Content-Type: application/json' \
   Password, `op=password`). Please say which one is authoritative (or whether they're the same
   underneath) before a password route is requested. The app currently offers password changes
   only on its Security screen (disabled).
+  **ANSWERED 2026-09-30:** `/my/security` is authoritative (decided by Basem/Mariam — it's Odoo's
+  core page, so it survives an Odoo upgrade), even though the custom route also works. No app
+  change was needed: the app never linked to `/my/account/change_password` (commit 4facfd7 records
+  the decision in code). The rest of this request (013) is still open.
 
 ## Mobile app side (for reference)
 

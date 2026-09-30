@@ -1,9 +1,23 @@
 # Backend request 017 — Account deletion: confirm what it actually does
 
-**Status:** Open — blocks wiring the mobile app's "Delete Account" button (it stays disabled,
-"Coming soon", until this is confirmed)
+**Status:** CLOSED 2026-09-30 — answered: `/my/deactivate_account` only archives the account (see
+"Resolution"). The app's button is still disabled until it's wired up, which is separate work.
 **Requested:** 2026-09-28
 **For:** whoever takes over YallaShuq backend development (anyone with Odoo / backend access)
+
+## Resolution (2026-09-30)
+
+Confirmed by the project owner: **`/my/deactivate_account` only archives the account** — login is
+blocked, but **no data is deleted**: order history and the partner record stay intact.
+
+What the app did with it (commit 4facfd7): the Security screen's "Delete Account" is now
+**"Deactivate Account"** (title, button, and step 2's "deactivate your account"), on purpose
+different from the live page's wording. The warning "This action cannot be undone." is kept:
+archiving can be reversed by an admin, but the customer has no self-service way to reactivate —
+they'd have to contact support — so from their side it's effectively permanent.
+
+Not changed by this: the app's button stays disabled until the deactivate flow is wired up (the
+route is an HTML form post; see "Request" below for the JSON reply that would make that clean).
 
 ## Context (read this first)
 
