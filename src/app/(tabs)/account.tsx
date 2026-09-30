@@ -53,8 +53,10 @@ const COPY = {
       title: 'Marketplace Documents',
       description: 'View your order confirmations and receipts',
     },
+    // Live card says "Gift & Vouchers"; the app uses its screen's title instead (user decision
+    // 2026-09-30, matches the live /my/gift-cards page title).
     giftCards: {
-      title: 'Gift & Vouchers',
+      title: 'My Gift Cards',
       description: 'View your available gift cards and vouchers',
     },
     wallet: { title: 'eWallet', description: 'Manage your balance and view transaction history' },
