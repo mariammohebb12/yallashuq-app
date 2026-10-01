@@ -3,6 +3,7 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { View, type ColorValue } from 'react-native';
 
 import { MishMeshAssistant } from '@/components/mishmesh-chat';
+import { NotificationBell } from '@/components/notification-bell';
 import { useCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
@@ -31,6 +32,8 @@ export default function TabLayout() {
         // Playfair (the site's font for all text), at the same weights the defaults use.
         headerTitleStyle: { fontFamily: Fonts.primarySemiBold },
         tabBarLabelStyle: { fontFamily: Fonts.primaryMedium },
+        // Notification inbox bell (app-only; signed-in customers only — see notification-bell.tsx).
+        headerRight: () => <NotificationBell />,
       }}
       // The MishMesh launcher floats over every main screen (as on every page of the live site),
       // just above the tab bar.

@@ -1,9 +1,38 @@
 # Backend request 022 — Customer notifications are completely missing (no inbox, no push)
 
-**Status:** Open — MISSING FEATURE (blank slate). Blocks all Notifications work in the mobile app
-(nothing built)
+**Status:** Partly done — the inbox storage + routes exist on production (2026-10-01, see
+"Update" below) and the app's inbox is built on them. Still open: nothing creates notifications,
+and there is no push.
 **Requested:** 2026-09-28
 **For:** whoever takes over YallaShuq backend development
+
+## Update 2026-10-01 — inbox routes shipped (production only)
+
+Commit `f756149` (`yallashuq_seller`) added the model `yallashuq.notification` (partner, title,
+body, type ∈ order/warranty/return/promotional/support/general, is_read, read_date, optional
+res_model/res_id link) and three `auth='user'` JSON-RPC routes:
+
+- `/my/notifications/json` `{page, limit ≤ 50, unread_only}` → `{status, page, page_count,
+  total_count, unread_count, notifications: [{id, title, body, type, is_read, created_at,
+  res_model, res_id}]}`
+- `/my/notifications/<id>/read` → `{status}` · `/my/notifications/read_all` → `{status, marked_count}`
+
+On production they exist (signed out → "Session Expired"); staging is a 404. The model is new, so
+the module must be **upgraded** on each server (`-u yallashuq_seller`) or signed-in calls fail.
+
+The app's inbox (bell in the main tabs' header with the unread count, list, tap = mark read +
+open the linked order/return, "Mark all as read") uses them; sample data only on a 404.
+
+Still open:
+
+1. **Nothing creates notifications.** `yallashuq.notification._notify()` has no callers: decide
+   which events notify customers (order status Packing/Shipped/Delivered — after request 029 —,
+   returns/refunds, warranty claims, support replies, promotions) and call it there.
+2. **No push.** Nothing reaches the phone by itself; needs a provider/account decision (Firebase
+   Cloud Messaging + APNs, OneSignal, or Expo push) plus a route to register device tokens.
+3. **Links:** the app opens `sale.order` and `return.request` links; other models (warranty,
+   tickets) have no app screen yet, so those notifications only mark read.
+4. **Preferences** (which types a customer wants) — not in the model yet.
 
 ## Context (read this first)
 

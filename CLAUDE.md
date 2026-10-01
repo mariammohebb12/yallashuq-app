@@ -117,8 +117,13 @@ Core flow order: Home → Shop → Product → Cart → Checkout (Address → Pa
 - [ ] Customer support: chat, tickets, ticket status, AI-to-human handover
 
 ## Known Blockers / Open Items
-- Notifications and saved address book are not yet confirmed on the live site — do not build
-  until confirmed with real data.
+- Saved address book is not yet confirmed on the live site — do not build until confirmed with
+  real data.
+- Notifications: in-app inbox + header bell built 2026-10-01 on the user's explicit go-ahead
+  (`src/app/my/notifications.tsx`, `src/api/notifications.ts`, `src/components/notification-bell.tsx`)
+  against /my/notifications/json, /<id>/read, /read_all (production only). NO push notifications
+  (needs a Firebase/APNs/OneSignal/Expo account decision) and nothing on the backend creates
+  notifications yet (no caller of `_notify()`), so the inbox is empty for real customers.
 - Seller storefront: built 2026-10-01 on the user's explicit go-ahead (`src/app/store/[id].tsx`,
   `src/api/store.ts`) against /store/<id>/json — name + logo + product count only (client scope).
   Checked on production with seller 73; not on staging. Not linked from anywhere yet: no real data
