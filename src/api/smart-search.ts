@@ -18,7 +18,7 @@ import { productImageUrl } from './product-image-overrides';
 
 const SEARCH_PATH = '/inventory/search/query';
 
-type RawResult = {
+export type RawSmartSearchResult = {
   id: number;
   name: string;
   price: number;
@@ -56,11 +56,11 @@ export async function smartSearch(query: string): Promise<SmartSearchResponse> {
   try {
     const data = await odooJsonRpc<{
       status?: string;
-      results?: RawResult[];
+      results?: RawSmartSearchResult[];
       message?: string;
     }>(SEARCH_PATH, { query });
     if (data?.status === 'success') {
-      return { ok: true, results: (data.results ?? []).map(toResult) };
+      return { ok: true, results: (data.results ?? []).map(toSmartSearchResult) };
     }
     if (data?.status === 'no_match') {
       return { ok: true, results: [] };
@@ -74,7 +74,8 @@ export async function smartSearch(query: string): Promise<SmartSearchResponse> {
   }
 }
 
-function toResult(raw: RawResult): SmartSearchResult {
+/** Also used by the MishMesh chat (/inventory_engine/chat returns the same rows). */
+export function toSmartSearchResult(raw: RawSmartSearchResult): SmartSearchResult {
   return {
     id: raw.id,
     name: raw.name,
