@@ -117,8 +117,12 @@ Core flow order: Home → Shop → Product → Cart → Checkout (Address → Pa
 - [ ] Customer support: chat, tickets, ticket status, AI-to-human handover
 
 ## Known Blockers / Open Items
-- Notifications, saved address book, and seller/store public profile pages are not yet confirmed
-  on the live site — do not build until confirmed with real data.
+- Notifications and saved address book are not yet confirmed on the live site — do not build
+  until confirmed with real data.
+- Seller storefront: built 2026-10-01 on the user's explicit go-ahead (`src/app/store/[id].tsx`,
+  `src/api/store.ts`) against /store/<id>/json — name + logo + product count only (client scope).
+  Checked on production with seller 73; not on staging. Not linked from anywhere yet: no real data
+  in the app carries a seller id (cards/product detail have the seller's name only).
 - Order tracking detail: built 2026-09-30 on the user's explicit go-ahead
   (`src/app/my/orders/[id]/tracking.tsx`, `src/api/delivery-tracking.ts`) against the pasted
   /api/delivery/track contract — NOT yet verified with real data (staging still runs the old fake

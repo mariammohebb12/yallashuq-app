@@ -98,7 +98,11 @@ export async function fetchCatalogPage(page: number): Promise<CatalogResult> {
  *   cards are the same shape as /home/catalog/more's (same keys and types, compared 2026-10-01).
  * - Sort: exactly popular (default), price_low, newest. No price-range filter exists (on purpose).
  * - A category id that doesn't exist fails with an "Odoo Server Error" (MissingError); the app only
- *   sends ids from Home / Categories.
+ *   sends ids from Home / Categories (#027).
+ * - `seller` (the /store/<id>/json seller id) filters to one seller. A seller id the backend
+ *   doesn't accept is SILENTLY IGNORED (echoed back as `filters.seller: 0`, all products
+ *   returned — seen with 72, 2026-10-01), so a seller request whose echo doesn't match is treated
+ *   as an error here, never shown as that seller's products.
  * - Not on staging (404, 2026-10-01). There fetchShopProducts falls back to the unfiltered
  *   /home/catalog/more and reports filtersAvailable: false, so Shop shows its controls as
  *   "Coming soon" instead of pretending to filter.
@@ -109,6 +113,8 @@ export type ShopQuery = {
   page?: number;
   /** product.public.category id; 0 / omitted = all. */
   category?: number;
+  /** Seller id as /store/<id>/json uses it; 0 / omitted = all sellers. */
+  seller?: number;
   sort?: ShopSort;
   freeShipping?: boolean;
   warrantyEligible?: boolean;
@@ -129,11 +135,14 @@ type ShopProductsResponse = CatalogResponse & {
   message?: string;
   page_count: number;
   total_count: number;
+  /** The filters the backend actually applied. */
+  filters?: { seller?: number };
 };
 
 export async function fetchShopProducts({
   page = 1,
   category = 0,
+  seller = 0,
   sort = 'popular',
   freeShipping = false,
   warrantyEligible = false,
@@ -145,7 +154,7 @@ export async function fetchShopProducts({
       category,
       search: '',
       sort,
-      seller: 0,
+      seller,
       free_shipping: freeShipping,
       warranty_eligible: warrantyEligible,
     });
@@ -165,6 +174,10 @@ export async function fetchShopProducts({
   }
   if (data?.status !== 'success' || !Array.isArray(data.cards)) {
     return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  }
+  // The backend drops a seller it doesn't accept and returns everything (see above).
+  if (seller > 0 && data.filters?.seller !== seller) {
+    return { ok: false, message: UNEXPECTED_RESPONSE_MESSAGE };
   }
   for (const card of data.cards) {
     cardCache.set(card.id, card);

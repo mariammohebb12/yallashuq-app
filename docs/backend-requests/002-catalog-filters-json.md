@@ -18,9 +18,15 @@ Still open / found while checking production (2026-10-01, logged out):
 
 1. **No seller list.** The route accepts `seller=<id>`, but nothing returns the sellers (ids +
    names) and cards have no seller id, so the app's "All Sellers" stays "Coming soon".
-2. **Warranty Eligible returns nothing although a product is flagged eligible** — now its own
+   Cards (and Product detail) also need the seller's id (the one `/store/<id>/json` uses) so the
+   app can link a seller's name to their storefront — the storefront screen exists (2026-10-01)
+   but nothing can open it with real data yet.
+2. **Unknown seller silently ignored.** `seller: 72` (not a seller) is echoed back as
+   `filters.seller: 0` and returns **all** products, instead of none or an error. The app treats
+   that as an error so it never shows other sellers' products as a store's.
+3. **Warranty Eligible returns nothing although a product is flagged eligible** — now its own
    request: **028**.
-3. **Boolean params taken from strings** and **unknown category → server error** — now their
+4. **Boolean params taken from strings** and **unknown category → server error** — now their
    own request: **027**.
 
 ## Context (read this first)
