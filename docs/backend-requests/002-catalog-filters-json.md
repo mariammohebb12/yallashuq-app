@@ -18,14 +18,10 @@ Still open / found while checking production (2026-10-01, logged out):
 
 1. **No seller list.** The route accepts `seller=<id>`, but nothing returns the sellers (ids +
    names) and cards have no seller id, so the app's "All Sellers" stays "Coming soon".
-2. **Warranty Eligible returns nothing although a product is flagged eligible.** With
-   `warranty_eligible: true` the route returns 0 products, yet the "Lamp" card (id 52) says
-   `"warranty_eligible": true`. The website's own `/shop?warranty_eligible=1` also shows none, so
-   the filter and the card flag disagree somewhere in the backend.
-3. **Boolean params taken from strings.** `"warranty_eligible": "false"` (a string) is treated as
-   true. The app sends real booleans; worth parsing strictly.
-4. **Unknown category → server error.** `category: 99999` fails with "Odoo Server Error"
-   (MissingError, full traceback in the reply — see #024) instead of an empty list or a clean error.
+2. **Warranty Eligible returns nothing although a product is flagged eligible** — now its own
+   request: **028**.
+3. **Boolean params taken from strings** and **unknown category → server error** — now their
+   own request: **027**.
 
 ## Context (read this first)
 
