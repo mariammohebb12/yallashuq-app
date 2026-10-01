@@ -87,6 +87,98 @@ export async function fetchCatalogPage(page: number): Promise<CatalogResult> {
   };
 }
 
+/*
+ * Shop's filtered + sorted catalog: POST (JSON-RPC) /shop/products/json, from
+ * yallashuq_seller/controllers/main.py (as relayed by the user, 2026-10-01). Public (no sign-in).
+ * Checked on production 2026-10-01 (logged out):
+ * - It is type='json': a GET with a query string is rejected (400). Params go in the JSON-RPC body.
+ * - Params: page, category (0 = all), search, sort, seller (0 = all), free_shipping,
+ *   warranty_eligible. The two flags MUST be real booleans: the string "false" counts as true.
+ * - Response: {status, page, page_count, total_count, has_next, next_page, filters, cards}. The
+ *   cards are the same shape as /home/catalog/more's (same keys and types, compared 2026-10-01).
+ * - Sort: exactly popular (default), price_low, newest. No price-range filter exists (on purpose).
+ * - A category id that doesn't exist fails with an "Odoo Server Error" (MissingError); the app only
+ *   sends ids from Home / Categories.
+ * - Not on staging (404, 2026-10-01). There fetchShopProducts falls back to the unfiltered
+ *   /home/catalog/more and reports filtersAvailable: false, so Shop shows its controls as
+ *   "Coming soon" instead of pretending to filter.
+ */
+export type ShopSort = 'popular' | 'price_low' | 'newest';
+
+export type ShopQuery = {
+  page?: number;
+  /** product.public.category id; 0 / omitted = all. */
+  category?: number;
+  sort?: ShopSort;
+  freeShipping?: boolean;
+  warrantyEligible?: boolean;
+};
+
+export type ShopResult =
+  | ({
+      ok: true;
+      /** false = the route isn't deployed here: unfiltered catalog, controls not applied. */
+      filtersAvailable: boolean;
+      /** Backend's total for these filters; null when unknown (fallback route). */
+      totalCount: number | null;
+    } & CatalogPage)
+  | { ok: false; message: string };
+
+type ShopProductsResponse = CatalogResponse & {
+  status: 'success' | (string & {});
+  message?: string;
+  page_count: number;
+  total_count: number;
+};
+
+export async function fetchShopProducts({
+  page = 1,
+  category = 0,
+  sort = 'popular',
+  freeShipping = false,
+  warrantyEligible = false,
+}: ShopQuery = {}): Promise<ShopResult> {
+  let data: ShopProductsResponse;
+  try {
+    data = await odooJsonRpc<ShopProductsResponse>('/shop/products/json', {
+      page,
+      category,
+      search: '',
+      sort,
+      seller: 0,
+      free_shipping: freeShipping,
+      warranty_eligible: warrantyEligible,
+    });
+  } catch (error) {
+    // A non-JSON reply (SyntaxError) is the 404 HTML page of a server without the route.
+    if (error instanceof SyntaxError) {
+      if (__DEV__) {
+        console.log('[shop] /shop/products/json not deployed on this server — unfiltered catalog');
+      }
+      const fallback = await fetchCatalogPage(page);
+      return fallback.ok ? { ...fallback, filtersAvailable: false, totalCount: null } : fallback;
+    }
+    return {
+      ok: false,
+      message: error instanceof Error && error.message ? error.message : NETWORK_ERROR_MESSAGE,
+    };
+  }
+  if (data?.status !== 'success' || !Array.isArray(data.cards)) {
+    return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  }
+  for (const card of data.cards) {
+    cardCache.set(card.id, card);
+  }
+  return {
+    ok: true,
+    filtersAvailable: true,
+    totalCount: typeof data.total_count === 'number' ? data.total_count : null,
+    products: data.cards.map(toProductSummary),
+    hasNext: data.has_next,
+    nextPage: data.next_page,
+  };
+}
+
 // Cards seen so far, by product.template id, so Product detail can show a product Home/Shop just
 // listed without reloading the catalog.
 const cardCache = new Map<number, CatalogCard>();

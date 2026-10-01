@@ -1,8 +1,31 @@
 # Backend request 002 — Filtering, sorting and sellers for the JSON product catalog
 
-**Status:** Open — blocks the Shop screen's seller list, filters and sort in the mobile app (shown there as "Coming soon")
+**Status:** Partly done — filters and sort shipped on production as `/shop/products/json`
+(2026-10-01, see "Update" below); the **seller list** is still open.
 **Requested:** 2026-09-25
 **For:** whoever takes over YallaShuq backend development
+
+## Update 2026-10-01 — `/shop/products/json` (production only)
+
+Built in `yallashuq_seller/controllers/main.py`. Public JSON-RPC route (`type='json'`: a GET with
+a query string is rejected with 400). Params `page, category, search, sort, seller, free_shipping,
+warranty_eligible`; response `{status, page, page_count, total_count, has_next, next_page,
+filters, cards}` with the same card shape as `/home/catalog/more`. Sort: `popular`, `price_low`,
+`newest`. Still a 404 on staging. The app's Shop screen now uses it for sort, Free Shipping,
+Warranty Eligible and category.
+
+Still open / found while checking production (2026-10-01, logged out):
+
+1. **No seller list.** The route accepts `seller=<id>`, but nothing returns the sellers (ids +
+   names) and cards have no seller id, so the app's "All Sellers" stays "Coming soon".
+2. **Warranty Eligible returns nothing although a product is flagged eligible.** With
+   `warranty_eligible: true` the route returns 0 products, yet the "Lamp" card (id 52) says
+   `"warranty_eligible": true`. The website's own `/shop?warranty_eligible=1` also shows none, so
+   the filter and the card flag disagree somewhere in the backend.
+3. **Boolean params taken from strings.** `"warranty_eligible": "false"` (a string) is treated as
+   true. The app sends real booleans; worth parsing strictly.
+4. **Unknown category → server error.** `category: 99999` fails with "Odoo Server Error"
+   (MissingError, full traceback in the reply — see #024) instead of an empty list or a clean error.
 
 ## Context (read this first)
 

@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 
 import { addToCart } from '@/api/cart';
-import { fetchCatalogPage } from '@/api/catalog';
+import { fetchShopProducts, type ShopSort } from '@/api/catalog';
 import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
+import { PickerModal } from '@/components/picker-modal';
 import { ProductGrid, type ProductSummary } from '@/components/product-card';
 import { setCartQuantity } from '@/state/cart-quantity';
 import { Fonts } from '@/theme/fonts';
@@ -26,15 +27,17 @@ import { Colors } from '@/theme/theme';
  * breadcrumb, "All Sellers" (a dropdown on phones), "Filters" card, "All Products" header with
  * count and sort, product grid. Styled with Home's design system (cards, colors, fonts).
  *
- * Products are REAL: GET /home/catalog/more (src/api/catalog.ts), paged with "Load More".
+ * Products are REAL: POST /shop/products/json (fetchShopProducts, src/api/catalog.ts), paged with
+ * "Load More". Free Shipping, Warranty Eligible, sort (the live page's three options only) and
+ * the `category` param from Home are applied by the backend; changing one reloads from page 1.
+ * The count is the backend's total_count for the current filters. An empty result shows
+ * "0 products" and no grid, as the live page does (it has no "no products" text).
+ * Where the route isn't deployed (staging, 2026-10-01) the unfiltered /home/catalog/more is shown
+ * instead, with the controls disabled + "Coming soon" as before (approved 2026-09-25).
  *
- * NOT FUNCTIONAL YET — shown disabled with a "coming soon" note on purpose (approved 2026-09-25):
- * that route ignores every filter and has no seller ids, so the seller list, Free Shipping /
- * Warranty Eligible filters, sort, and the `category` param from Home can't work yet. They need
- * the backend route to accept the /shop filters (search, sort, seller, free_shipping,
- * warranty_eligible, category) and to return a sellers list — requested in
- * docs/backend-requests/002-catalog-filters-json.md. The /shop HTML page is the only place that
- * filters today.
+ * STILL "Coming soon": "All Sellers" — no route returns a seller list and the cards carry no
+ * seller id, so there's nothing to fill it with (docs/backend-requests/002-catalog-filters-json.md).
+ * No price-range filter: the backend left it out on purpose (not real on the website either).
  *
  * Left out on purpose: the "Top Rated" sort (not a real option on the live page — it's the fixed
  * badge text on its cards, so the badge is left out too) and the page's search box (not in scope
@@ -55,33 +58,49 @@ const COPY = {
   loading: 'Loading...',
   // App wording (client 2026-09-28): opens the live /inventory/search page's search — never "AI".
   smartSearch: 'Smart Search',
+  // Confirmed from the live /my/invoices page ("Sort By:"); the live /shop select has no label.
+  sortBy: 'Sort By',
   // PLACEHOLDER COPY (not confirmed anywhere).
   comingSoon: 'Coming soon',
   categoryNotice: 'Category filtering is coming soon — showing all products.',
 };
 
-// The live page's three real sort options (value → label). Only shown as the current value until
-// the backend applies sort.
-const SORT_OPTIONS = [
+// The live page's three sort options (value → label) — the only values the backend accepts.
+const SORT_OPTIONS: { value: ShopSort; label: string }[] = [
   { value: 'popular', label: 'Most Popular' },
   { value: 'price_low', label: 'Price Low to High' },
   { value: 'newest', label: 'Newest' },
-] as const;
-const CURRENT_SORT = SORT_OPTIONS[0]; // The live default (and the route's fixed order).
+];
 
 type ListState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; products: ProductSummary[]; hasNext: boolean; nextPage: number };
+  | {
+      status: 'ready';
+      products: ProductSummary[];
+      hasNext: boolean;
+      nextPage: number;
+      /** false = unfiltered fallback (route not deployed): controls shown as "Coming soon". */
+      filtersAvailable: boolean;
+      totalCount: number | null;
+    };
 
 export default function ShopScreen() {
-  // From Home's hero chips / category cards (live: /shop?category=<id>). Can't be applied yet.
+  // From Home's hero chips / category cards (live: /shop?category=<id>).
   const { category } = useLocalSearchParams<{ category?: string }>();
+  const categoryId = Number(category) > 0 ? Number(category) : 0;
 
+  const [sort, setSort] = useState<ShopSort>('popular');
+  const [freeShipping, setFreeShipping] = useState(false);
+  const [warrantyEligible, setWarrantyEligible] = useState(false);
+  const [sortPickerOpen, setSortPickerOpen] = useState(false);
   const [list, setList] = useState<ListState>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const mounted = useRef(true);
+  // Only the latest request may update the list (filters can change while one is in flight).
+  const requestId = useRef(0);
+  const filters = { category: categoryId, sort, freeShipping, warrantyEligible };
 
   useEffect(() => {
     mounted.current = true;
@@ -91,10 +110,18 @@ export default function ShopScreen() {
   }, []);
 
   const loadFirstPage = useCallback(async () => {
-    const result = await fetchCatalogPage(1);
-    if (!mounted.current) {
+    const id = ++requestId.current;
+    const result = await fetchShopProducts({
+      page: 1,
+      category: categoryId,
+      sort,
+      freeShipping,
+      warrantyEligible,
+    });
+    if (!mounted.current || id !== requestId.current) {
       return;
     }
+    setLoadingMore(false); // Any "Load More" in flight was for the previous filters.
     setList(
       result.ok
         ? {
@@ -102,10 +129,12 @@ export default function ShopScreen() {
             products: result.products,
             hasNext: result.hasNext,
             nextPage: result.nextPage,
+            filtersAvailable: result.filtersAvailable,
+            totalCount: result.totalCount,
           }
         : { status: 'error', message: result.message }
     );
-  }, []);
+  }, [categoryId, sort, freeShipping, warrantyEligible]);
 
   useEffect(() => {
     loadFirstPage();
@@ -123,9 +152,10 @@ export default function ShopScreen() {
     if (list.status !== 'ready' || !list.hasNext || loadingMore) {
       return;
     }
+    const id = requestId.current; // A filter change supersedes this page.
     setLoadingMore(true);
-    const result = await fetchCatalogPage(list.nextPage);
-    if (!mounted.current) {
+    const result = await fetchShopProducts({ ...filters, page: list.nextPage });
+    if (!mounted.current || id !== requestId.current) {
       return;
     }
     setLoadingMore(false);
@@ -136,7 +166,7 @@ export default function ShopScreen() {
     setList((current) =>
       current.status === 'ready'
         ? {
-            status: 'ready',
+            ...current,
             // Skip anything already listed, in case the catalog changed between pages.
             products: [
               ...current.products,
@@ -148,6 +178,16 @@ export default function ShopScreen() {
         : current
     );
   }
+
+  // A new filter/sort shows the spinner while page 1 reloads (loadFirstPage runs via its effect).
+  function changeFilters(apply: () => void) {
+    setList({ status: 'loading' });
+    apply();
+  }
+
+  // Before the first reply, assume the route is there (controls enabled); the fallback disables them.
+  const filtersAvailable = list.status !== 'ready' || list.filtersAvailable;
+  const currentSort = SORT_OPTIONS.find((option) => option.value === sort) ?? SORT_OPTIONS[0];
 
   function openProduct(product: ProductSummary) {
     router.push({ pathname: '/product/[id]', params: { id: String(product.id) } });
@@ -209,7 +249,7 @@ export default function ShopScreen() {
         />
       </Pressable>
 
-      {category !== undefined && (
+      {categoryId > 0 && !filtersAvailable && (
         <View style={styles.notice} accessibilityRole="alert">
           <Text style={styles.noticeText}>{COPY.categoryNotice}</Text>
         </View>
@@ -237,32 +277,57 @@ export default function ShopScreen() {
         </View>
       </View>
 
-      {/* Filters — disabled until the backend applies them. */}
+      {/* Filters — applied by the backend; disabled on the unfiltered fallback. */}
       <View style={[styles.card, styles.filters]}>
         <View style={styles.filtersHead}>
           <Text style={styles.filtersTitle}>{COPY.filters}</Text>
-          <ComingSoonBadge />
+          {!filtersAvailable && <ComingSoonBadge />}
         </View>
-        <DisabledCheckbox label={COPY.freeShipping} />
-        <DisabledCheckbox label={COPY.warrantyEligible} />
+        <FilterCheckbox
+          label={COPY.freeShipping}
+          checked={freeShipping}
+          disabled={!filtersAvailable}
+          onToggle={() => changeFilters(() => setFreeShipping((value) => !value))}
+        />
+        <FilterCheckbox
+          label={COPY.warrantyEligible}
+          checked={warrantyEligible}
+          disabled={!filtersAvailable}
+          onToggle={() => changeFilters(() => setWarrantyEligible((value) => !value))}
+        />
       </View>
 
       {/* Header: All Products · N products, and sort */}
       <View style={styles.head}>
         <View style={styles.headTitleRow}>
           <Text style={styles.headTitle}>{COPY.allProducts}</Text>
-          {/* No total from the route; the count is exact only once every page is loaded. */}
-          {list.status === 'ready' && !list.hasNext && (
-            <Text style={styles.headCount}>{COPY.productCount(list.products.length)}</Text>
-          )}
+          {/* The backend's total for these filters; on the fallback route (no total) the count
+              is shown only once every page is loaded. */}
+          {list.status === 'ready' &&
+            (list.totalCount !== null ? (
+              <Text style={styles.headCount}>{COPY.productCount(list.totalCount)}</Text>
+            ) : (
+              !list.hasNext && (
+                <Text style={styles.headCount}>{COPY.productCount(list.products.length)}</Text>
+              )
+            ))}
         </View>
-        <View
-          style={[styles.sort, styles.disabled]}
-          accessible
+        <Pressable
+          onPress={() => setSortPickerOpen(true)}
+          disabled={!filtersAvailable}
+          style={({ pressed }) => [
+            styles.sort,
+            !filtersAvailable && styles.disabled,
+            pressed && styles.pressed,
+          ]}
           accessibilityRole="button"
-          accessibilityState={{ disabled: true }}
-          accessibilityLabel={`${CURRENT_SORT.label}, ${COPY.comingSoon}`}>
-          <Text style={styles.sortText}>{CURRENT_SORT.label}</Text>
+          accessibilityState={{ disabled: !filtersAvailable }}
+          accessibilityLabel={
+            filtersAvailable
+              ? `${COPY.sortBy}: ${currentSort.label}`
+              : `${currentSort.label}, ${COPY.comingSoon}`
+          }>
+          <Text style={styles.sortText}>{currentSort.label}</Text>
           <SymbolView
             name={{
               ios: 'chevron.down',
@@ -272,11 +337,13 @@ export default function ShopScreen() {
             size={12}
             tintColor={Colors.placeholderIcon}
           />
+        </Pressable>
+      </View>
+      {!filtersAvailable && (
+        <View style={styles.sortNote}>
+          <ComingSoonBadge />
         </View>
-      </View>
-      <View style={styles.sortNote}>
-        <ComingSoonBadge />
-      </View>
+      )}
 
       {list.status === 'loading' ? (
         <ActivityIndicator style={styles.listLoading} color={Colors.primaryOrange} />
@@ -303,22 +370,56 @@ export default function ShopScreen() {
           )}
         </>
       )}
+      <PickerModal
+        visible={sortPickerOpen}
+        title={COPY.sortBy}
+        items={SORT_OPTIONS.map((option) => ({ key: option.value, label: option.label }))}
+        selectedKey={sort}
+        onSelect={(key) => {
+          setSortPickerOpen(false);
+          if (key !== sort) {
+            changeFilters(() => setSort(key as ShopSort));
+          }
+        }}
+        onClose={() => setSortPickerOpen(false)}
+      />
     </ScrollView>
   );
 }
 
-/** Live filter checkbox look, permanently disabled for now. */
-function DisabledCheckbox({ label }: { label: string }) {
+/** Live filter checkbox look (orange tick when checked); disabled on the unfiltered fallback. */
+function FilterCheckbox({
+  label,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <View
-      style={[styles.filterRow, styles.disabled]}
-      accessible
+    <Pressable
+      onPress={onToggle}
+      disabled={disabled}
+      hitSlop={6}
+      style={[styles.filterRow, disabled && styles.disabled]}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: false, disabled: true }}
+      accessibilityState={{ checked, disabled }}
       accessibilityLabel={label}>
-      <View style={styles.checkbox} />
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+        {checked && (
+          <SymbolView
+            name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+            size={11}
+            weight="bold"
+            tintColor={Colors.white}
+          />
+        )}
+      </View>
       <Text style={styles.filterLabel}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -429,6 +530,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.iconButtonBorder,
     backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // App-only look (the live page uses the browser's default checkbox): brand orange when ticked.
+  checkboxChecked: {
+    borderColor: Colors.primaryOrange,
+    backgroundColor: Colors.primaryOrange,
   },
   filterLabel: {
     fontFamily: Fonts.primary,
