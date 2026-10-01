@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { router, Stack, useFocusEffect } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,10 +32,13 @@ import { Colors } from '@/theme/theme';
  *
  * Paging: the route returns one page at a time; "Load More" (same button, copy and behaviour as the
  * Shop tab's) fetches the next page until page_count is reached. No order total is shown.
- * KNOWN (2026-09-30, not fixed yet): this screen reloads from page 1 every time it's shown, so
- * pages added with "Load More" are lost after opening an order and coming back. The Shop tab
- * keeps its loaded pages (it only reloads on pull-to-refresh) — inconsistent; decide with real
- * data before changing either.
+ * Like the Shop tab, page 1 loads once when the screen opens and again only on pull-to-refresh,
+ * so pages added with "Load More" are kept after opening an order and coming back (fixed
+ * 2026-10-01; it used to reload from page 1 on every visit).
+ * INTENTIONAL TRADEOFF: the list no longer refreshes by itself when coming back from Order Detail,
+ * so a status change that happened meanwhile only shows after a pull-to-refresh.
+ * A "Load More" reply is only appended to the list it was asked for: not after a refresh has
+ * replaced the list, and not if that page is no longer the next one (e.g. a duplicate reply).
  *
  * Same fields as the live page's table (Sales Order #, Order Date, Total, Return, Feedback &
  * Support), reflowed into one stacked card per order for phone width: order number (title), date
@@ -79,6 +83,9 @@ export default function MyOrdersScreen() {
   const [reviewOrderId, setReviewOrderId] = useState<number | null>(null);
   const [supportOrderName, setSupportOrderName] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // Bumped each time page 1 is (re)loaded: identifies the current list, so a reply for an older
+  // list is dropped.
   const requestId = useRef(0);
   const mounted = useRef(true);
 
@@ -92,7 +99,7 @@ export default function MyOrdersScreen() {
   const load = useCallback(async () => {
     const id = ++requestId.current;
     const result = await fetchOrders();
-    if (id !== requestId.current) {
+    if (!mounted.current || id !== requestId.current) {
       return;
     }
     setLoadingMore(false);
@@ -109,25 +116,30 @@ export default function MyOrdersScreen() {
     );
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-      return () => {
-        requestId.current++;
-      };
-    }, [load])
-  );
+  // Same as the Shop tab: load once; later reloads only on pull-to-refresh.
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Same flow as the Shop tab's loadMore.
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    if (mounted.current) {
+      setRefreshing(false);
+    }
+  }
+
+  // Same flow as the Shop tab's loadMore, plus a check that the reply still fits the list.
   async function loadMore() {
     if (state.status !== 'ready' || !state.hasNext || loadingMore) {
       return;
     }
-    const id = requestId.current; // A refresh on focus supersedes this page.
+    const id = requestId.current; // A refresh replaces the list: this page then no longer fits.
+    const page = state.nextPage;
     setLoadingMore(true);
-    const result = await fetchOrders(state.nextPage);
+    const result = await fetchOrders(page);
     if (!mounted.current || id !== requestId.current) {
-      return;
+      return; // The refresh resets loadingMore when it lands.
     }
     setLoadingMore(false);
     if (!result.ok) {
@@ -135,7 +147,8 @@ export default function MyOrdersScreen() {
       return;
     }
     setState((current) =>
-      current.status === 'ready'
+      // Only append the page the list is waiting for.
+      current.status === 'ready' && current.nextPage === page
         ? {
             ...current,
             // Skip anything already listed, in case orders changed between pages.
@@ -158,7 +171,15 @@ export default function MyOrdersScreen() {
           <ActivityIndicator color={Colors.primaryOrange} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={Colors.primaryOrange}
+            />
+          }>
           {state.status === 'ready' && state.isSampleData && <SampleDataBanner />}
           <Text style={styles.heading}>{COPY.heading}</Text>
 
