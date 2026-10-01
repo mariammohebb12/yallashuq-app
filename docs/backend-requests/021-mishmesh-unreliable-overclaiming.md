@@ -1,9 +1,29 @@
 # Backend request 021 — MishMesh assistant: unreliable, over-claims, no timeout
 
-**Status:** Open — BUG / quality. Blocks wiring the mobile app's MishMesh popup (it stays a visual
-shell until this is fixed)
+**Status:** Open — BUG / quality. Partly improved on production (see "Update 2026-10-01"); the
+app's MishMesh popup is now wired to the real route (with its own 30 s timeout).
 **Requested:** 2026-09-28
 **For:** whoever takes over YallaShuq backend development
+
+## Update 2026-10-01 — where this stands
+
+Checked on production (logged out) and in the backend code (`odoo_inventory_engine`,
+`ai_assistance`, `mishmesh_helpdesk_support`):
+
+| Item | Status |
+|---|---|
+| 2. Slow / unreliable replies | **Better:** "hello" answered in ~5 s, a follow-up with history in ~7 s (were 50–90 s). Still no guarantee — see item 5. |
+| 3. "Track orders" over-claim | **Fixed in the reply seen:** the greeting now says tracking and returns need the customer to log in. Refund/payment wording not re-tested. |
+| 4. Example prompt can't work | **STILL OPEN.** The website and the app (copied from it) still suggest *"I want chairs for my dining room"*, and the catalog still has no chairs (production lists 2 products), so the suggested first message finds nothing. Replace the examples with ones the catalog can answer, or make them configurable. |
+| 5. No server-side timeout | **STILL OPEN.** The OpenAI call in `ai_assistance/models/ai_chat.py` (`get_storefront_response`) has no `timeout`, so the route can still hang. The app now gives up after 30 s on its own. |
+| 6. Handoff from the chat | **Built in the backend, not verified:** `mishmesh_helpdesk_support` (commit `f756149`) now runs the ticket + channel escalation for the website/app channel and replies with text. Not tried on production on purpose (it would create a real ticket); guest behaviour unknown. |
+| New: error replies | `{status: "error", message}` returns the raw Python exception text (`str(e)`) — should be a fixed, user-safe message. |
+
+**App-side gap (mobile, not backend) — slow-reply feedback.** While waiting, the app shows only the
+website's "..." bubble, for up to 30 s, with no sign that a slow reply is still expected (no
+skeleton, no "still thinking…" after a few seconds, no cancel). With replies of 5–7 s today (and
+50–90 s historically) this reads as frozen. Worth a proper loading state when MishMesh's
+reliability is revisited — wording and design to be confirmed with the client first.
 
 ## Context (read this first)
 
@@ -166,7 +186,10 @@ decision before code is changed:
 
 ## Mobile app side (for reference)
 
-- `src/components/mishmesh-chat.tsx` is a **visual shell** (no calls to `/inventory_engine/chat`).
-  It stays that way until this request is fixed and confirmed on staging.
+- `src/components/mishmesh-chat.tsx` calls `/inventory_engine/chat` (wired 2026-10-01, commit
+  `784ffb1`, via `src/api/mishmesh-chat.ts`): real replies, product results as Smart Search-style
+  rows, a 30 s client timeout, and the switch to human support mode when a session exists.
+  Staging's AI is still off ("I'm currently resting"), so conversation can only be tried on
+  production.
 - Related: Smart Search (`src/app/smart-search.tsx`) already uses the keyword route
   `/inventory/search/query`, which works.
