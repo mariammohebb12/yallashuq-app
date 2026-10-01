@@ -15,21 +15,19 @@ import { Colors } from '@/theme/theme';
  * Screen: Return detail — the live /my/returns/<id> page (opened from a row of Order Detail's
  * "Previous Return Requests for This Order" list).
  *
- * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * No JSON route for a return (see src/api/returns.ts); fetchReturn returns sample data copied
- * from staging and this screen shows a visible "sample data" banner. When a route ships, only
- * src/api/returns.ts changes.
+ * DATA: the real /my/returns/<id>/json route (production only, NOT YET TESTED END-TO-END — see
+ * src/api/returns.ts). Where it isn't deployed (staging, 2026-10-01) fetchReturn returns sample
+ * data copied from staging and this screen shows a visible "sample data" banner.
+ * Real data has no customer photo (not in the route), so Customer Image shows the placeholder.
  *
  * The live page's sections, in its order, in one column:
  * - Returned Items: grey progress badge + green decision badge, one block per line (Product, Qty,
  *   Price, Refunded), then "Total Expected Refund:";
  * - Pickup History: Date + Slot per pickup;
  * - Request Info: Order (opens Order Detail), Refund Method, Reason, Return Reason, Customer Image.
- *   While the return is sample data, Order is NOT a link: plain text + a "Sample data" badge.
- *   Order Detail is real (/my/orders/<id>/json), so the sample return's order id would open a
- *   real order that may be unrelated or someone else's. It becomes a link again by itself once
- *   fetchReturn is wired to a real route (Route 4 of docs/backend-requests/006-returns-json.md)
- *   and isSampleData is false — that wiring is the actual fix.
+ *   Order is a link to Order Detail with real data (the route's order_id / order_name). On
+ *   sample data it is NOT a link (plain text + a "Sample data" badge): Order Detail is real
+ *   (/my/orders/<id>/json), so a sample return's order id could open an unrelated order.
  * Left out (not in this step's field list): the live "Return Type", "Latest Pickup" and "Status"
  * lines of Request Info.
  * "Refunded" is the live column name; it may not mean money actually moved (see CLAUDE.md,

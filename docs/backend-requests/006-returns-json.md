@@ -1,9 +1,35 @@
 # Backend request 006 — JSON endpoints for customer returns (form, submit, list, detail)
 
-**Status:** Open — blocks the mobile app's return screens (the new-return form's Submit is disabled;
-the return list/detail run on temporary sample data until this ships)
+**Status:** Partly done — the list and detail routes exist on production (2026-10-01, see
+"Update" below); the return **form** and **submit** routes (Routes 1–2) are still open, so the
+new-return form's Submit stays disabled.
 **Requested:** 2026-09-27
 **For:** whoever takes over YallaShuq backend development
+
+## Update 2026-10-01 — list and detail shipped (production only)
+
+Routes 3 and 4 were built under different names, in `yallashuq_returns/controllers/returns_json.py`
+(deployed to production; still a 404 on staging as of 2026-10-01):
+
+- `/my/returns/json` `{page}` → `{status, page, page_count, total_count, returns: [{id, name,
+  order_id, order_name, return_type, state, seller_decision, return_reason_code,
+  total_refund_amount, currency, latest_pickup_date, waiting_reschedule, create_date}]}`
+- `/my/returns/<id>/json` → the same fields + `{seller_rejection_reason, return_reason,
+  refund_type, tag_attached, tag_verification_status, return_label_pdf_url, lines: [{id,
+  product_id, product_name, quantity, product_price, refund_amount}], pickup_attempts: [{id,
+  requested_date, requested_slot, status}]}`
+
+The app's My Returns and Return Detail screens use them (sample data only where they're missing).
+Still open from this request:
+
+- **Labels.** The routes send codes only (`state`, `seller_decision`, `return_type`,
+  `refund_type`, reason and slot codes). The app shows the reason, slot and "original" refund
+  labels it already knows from the website and otherwise makes the code readable, which may not
+  match the website's badges ("Received & Verified", "Seller Accepted"). Please send labels, or
+  list every possible code with its label.
+- **Customer image.** No `issue_image_url` (or equivalent) in the detail, so the app can't show
+  the customer's photo.
+- **Routes 1–2** (form options and submit) — not built yet.
 
 ## Context (read this first)
 
@@ -168,11 +194,9 @@ curl -s -b $J -H 'Content-Type: application/json' \
   soon"), `src/app/my/returns/index.tsx` (return list — waits on Route 3, added 2026-09-28),
   `src/app/my/returns/[id].tsx` (return detail), and the "Previous Return Requests for This
   Order" list on `src/app/my/orders/[id].tsx`. All show a "Sample data" banner.
-- Return detail's "Order" field is shown as plain text with a "Sample data" badge, not a link,
-  while the return is sample data (2026-10-01): Order Detail already loads real orders, so a sample
-  return's order id could open an unrelated or another customer's order. It becomes a link to
-  Order Detail again automatically once Route 4 is wired into `fetchReturn` — no other app change
-  needed.
+- Return detail's "Order" field is a link to Order Detail with real data, but plain text with a
+  "Sample data" badge on sample data (2026-10-01): Order Detail already loads real orders, so a
+  sample return's order id could open an unrelated or another customer's order.
 - The app's form currently has only: Order (read-only), Items to Return (+ quantity), Reason for
   Return and Image Upload. The website's other required fields (Return Type, tags attached,
   pickup date and slot) will be added when this route ships.

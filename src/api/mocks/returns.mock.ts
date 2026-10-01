@@ -3,7 +3,8 @@ import type { ReturnDetail, ReturnForm, ReturnSummary } from '../returns';
 
 /*
  * ⚠️ TEMPORARY MOCK RETURNS — NOT REAL, DO NOT SHIP ⚠️
- * TODO: replace with the return list / detail routes once they exist, then delete this file.
+ * Only used where /my/returns/json and /my/returns/<id>/json are missing (a 404, e.g. staging);
+ * delete once both are deployed everywhere. The return form mock is still used (no route yet).
  *
  * Copied from staging's real /my/returns/6 and /my/returns/5 (checked 2026-09-27): product, qty,
  * price, refunded, total, pickup date/slot, order, refund method, reason, "-" return reason and

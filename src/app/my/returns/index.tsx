@@ -1,6 +1,14 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { fetchReturns, type ReturnBadge, type ReturnSummary } from '@/api/returns';
 import { FormMessage } from '@/components/form-message';
@@ -11,11 +19,13 @@ import { Colors } from '@/theme/theme';
 /*
  * Screen 27: My Returns (List) — the live /my/returns page.
  *
- * ⚠️ BLOCKED ON BACKEND — RUNS ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * The live page is server-rendered HTML only; no JSON route lists returns (checked on staging
- * 2026-09-28). Requested as Route 3 of docs/backend-requests/006-returns-json.md. Until it ships,
- * fetchReturns returns the staging test customer's real rows as sample data and this screen shows
- * a visible "sample data" banner. When the route ships, only src/api/returns.ts changes.
+ * DATA: the real /my/returns/json route (production only, NOT YET TESTED END-TO-END — see
+ * src/api/returns.ts). Where it isn't deployed (staging, 2026-10-01) fetchReturns returns the
+ * staging test customer's rows as sample data and this screen shows a visible "sample data"
+ * banner. Status badges with real data are the backend's codes made readable (no labels sent).
+ *
+ * Paging: like My Orders — "Load More" (same button, copy and behaviour) fetches the next page
+ * until page_count is reached; the list reloads from page 1 each time the screen is shown.
  *
  * Same columns as the live table (Return #, Order, Pickup Date, Refunded, Status), reflowed into
  * one card per return for phone width, like My Orders / Invoices: the return number (a link to
@@ -27,7 +37,8 @@ import { Colors } from '@/theme/theme';
  * Blockers").
  *
  * NOT BUILT: the empty state — the live page's "no returns" text wasn't seen (the test customer
- * has returns), so no wording is made up for it.
+ * has returns), so no wording is made up for it. With real data, a customer with no returns sees
+ * an empty page.
  * Linked from the Account tab's "My Returns" row (app-only; the live "My Account" page has no
  * Returns card).
  */
@@ -40,16 +51,34 @@ const COPY = {
   refunded: 'Refunded',
   // PLACEHOLDER COPY (not confirmed anywhere), same pattern as the other sample-data banners.
   sampleData: 'Sample data — the returns endpoint is not ready yet. These are not your real returns.',
+  // Same as My Orders / the Shop tab (confirmed from the live homepage catalog's button).
+  loadMore: 'Load More',
+  loading: 'Loading...',
 };
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; returns: ReturnSummary[]; isSampleData: boolean };
+  | {
+      status: 'ready';
+      returns: ReturnSummary[];
+      isSampleData: boolean;
+      hasNext: boolean;
+      nextPage: number;
+    };
 
 export default function MyReturnsScreen() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [loadingMore, setLoadingMore] = useState(false);
   const requestId = useRef(0);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     const id = ++requestId.current;
@@ -57,9 +86,16 @@ export default function MyReturnsScreen() {
     if (id !== requestId.current) {
       return;
     }
+    setLoadingMore(false);
     setState(
       result.ok
-        ? { status: 'ready', returns: result.returns, isSampleData: result.isSampleData }
+        ? {
+            status: 'ready',
+            returns: result.returns,
+            isSampleData: result.isSampleData,
+            hasNext: result.hasNext,
+            nextPage: result.nextPage,
+          }
         : { status: 'error', message: result.message }
     );
   }, []);
@@ -72,6 +108,38 @@ export default function MyReturnsScreen() {
       };
     }, [load])
   );
+
+  // Same flow as My Orders' loadMore.
+  async function loadMore() {
+    if (state.status !== 'ready' || !state.hasNext || loadingMore) {
+      return;
+    }
+    const id = requestId.current; // A refresh on focus supersedes this page.
+    setLoadingMore(true);
+    const result = await fetchReturns(state.nextPage);
+    if (!mounted.current || id !== requestId.current) {
+      return;
+    }
+    setLoadingMore(false);
+    if (!result.ok) {
+      Alert.alert(result.message); // PLACEHOLDER UI, as on My Orders.
+      return;
+    }
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            // Skip anything already listed, in case returns changed between pages.
+            returns: [
+              ...current.returns,
+              ...result.returns.filter((r) => !current.returns.some((c) => c.id === r.id)),
+            ],
+            hasNext: result.hasNext,
+            nextPage: result.nextPage,
+          }
+        : current
+    );
+  }
 
   return (
     <View style={styles.page}>
@@ -93,6 +161,16 @@ export default function MyReturnsScreen() {
                 <ReturnCard key={returnRequest.id} returnRequest={returnRequest} />
               ))}
             </View>
+          )}
+          {state.status === 'ready' && state.hasNext && (
+            <Pressable
+              onPress={loadMore}
+              disabled={loadingMore}
+              style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityState={{ busy: loadingMore }}>
+              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
+            </Pressable>
           )}
         </ScrollView>
       )}
@@ -261,5 +339,22 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  // Same look as My Orders' / the Shop tab's "Load More".
+  loadMore: {
+    alignSelf: 'center',
+    minHeight: 42,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(242,178,119,0.5)',
+    backgroundColor: 'rgb(255,244,230)',
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  loadMoreText: {
+    fontFamily: Fonts.primaryBold,
+    fontSize: 12,
+    color: Colors.loadMoreText,
   },
 });
