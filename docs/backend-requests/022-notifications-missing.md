@@ -25,9 +25,10 @@ open the linked order/return, "Mark all as read") uses them; sample data only on
 
 Still open:
 
-1. **Nothing creates notifications.** `yallashuq.notification._notify()` has no callers: decide
-   which events notify customers (order status Packing/Shipped/Delivered — after request 029 —,
-   returns/refunds, warranty claims, support replies, promotions) and call it there.
+1. **What creates notifications.** Since backend commit `fb95c69` (2026-10-01, on `develop`, not
+   deployed yet): a seller accepting/rejecting a return, and a staff public reply on a support
+   ticket. Still to decide: order status Packing/Shipped/Delivered (waits for request 029),
+   refunds, warranty claims, promotions. Live-chat lines are deliberately not notified.
 2. **No push.** Nothing reaches the phone by itself; needs a provider/account decision (Firebase
    Cloud Messaging + APNs, OneSignal, or Expo push) plus a route to register device tokens.
 3. **Links:** the app opens `sale.order` and `return.request` links; other models (warranty,
