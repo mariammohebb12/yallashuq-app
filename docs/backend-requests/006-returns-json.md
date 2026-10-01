@@ -168,6 +168,11 @@ curl -s -b $J -H 'Content-Type: application/json' \
   soon"), `src/app/my/returns/index.tsx` (return list — waits on Route 3, added 2026-09-28),
   `src/app/my/returns/[id].tsx` (return detail), and the "Previous Return Requests for This
   Order" list on `src/app/my/orders/[id].tsx`. All show a "Sample data" banner.
+- Return detail's "Order" field is shown as plain text with a "Sample data" badge, not a link,
+  while the return is sample data (2026-10-01): Order Detail already loads real orders, so a sample
+  return's order id could open an unrelated or another customer's order. It becomes a link to
+  Order Detail again automatically once Route 4 is wired into `fetchReturn` — no other app change
+  needed.
 - The app's form currently has only: Order (read-only), Items to Return (+ quantity), Reason for
   Return and Image Upload. The website's other required fields (Return Type, tags attached,
   pickup date and slot) will be added when this route ships.

@@ -5,6 +5,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchReturn, type ReturnDetail, type ReturnLine } from '@/api/returns';
+import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
 import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
@@ -24,6 +25,11 @@ import { Colors } from '@/theme/theme';
  *   Price, Refunded), then "Total Expected Refund:";
  * - Pickup History: Date + Slot per pickup;
  * - Request Info: Order (opens Order Detail), Refund Method, Reason, Return Reason, Customer Image.
+ *   While the return is sample data, Order is NOT a link: plain text + a "Sample data" badge.
+ *   Order Detail is real (/my/orders/<id>/json), so the sample return's order id would open a
+ *   real order that may be unrelated or someone else's. It becomes a link again by itself once
+ *   fetchReturn is wired to a real route (Route 4 of docs/backend-requests/006-returns-json.md)
+ *   and isSampleData is false — that wiring is the actual fix.
  * Left out (not in this step's field list): the live "Return Type", "Latest Pickup" and "Status"
  * lines of Request Info.
  * "Refunded" is the live column name; it may not mean money actually moved (see CLAUDE.md,
@@ -49,6 +55,7 @@ const COPY = {
   customerImage: 'Customer Image:',
   // PLACEHOLDER COPY (not confirmed anywhere).
   sampleData: 'Sample data — return details are not your real return',
+  sampleOrder: 'Sample data',
   notFound: 'This return could not be found.',
   noImage: 'No image',
 };
@@ -106,7 +113,7 @@ export default function ReturnDetailScreen() {
           ) : returnRequest === null ? (
             <FormMessage type="error" message={COPY.notFound} />
           ) : (
-            <ReturnBody returnRequest={returnRequest} />
+            <ReturnBody returnRequest={returnRequest} isSampleData={state.isSampleData} />
           )}
         </ScrollView>
       )}
@@ -114,7 +121,13 @@ export default function ReturnDetailScreen() {
   );
 }
 
-function ReturnBody({ returnRequest }: { returnRequest: ReturnDetail }) {
+function ReturnBody({
+  returnRequest,
+  isSampleData,
+}: {
+  returnRequest: ReturnDetail;
+  isSampleData: boolean;
+}) {
   const { order } = returnRequest;
   return (
     <View style={styles.sections}>
@@ -157,14 +170,25 @@ function ReturnBody({ returnRequest }: { returnRequest: ReturnDetail }) {
       <Section title={COPY.requestInfo}>
         <View style={styles.inlineRow}>
           <Text style={styles.label}>{COPY.order} </Text>
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/my/orders/[id]', params: { id: String(order.id) } })
-            }
-            hitSlop={8}
-            accessibilityRole="link">
-            <Text style={styles.link}>{order.name}</Text>
-          </Pressable>
+          {isSampleData ? (
+            // Not a link while the return is sample data (see the header comment).
+            <View
+              style={styles.sampleOrder}
+              accessible
+              accessibilityLabel={`${order.name}, ${COPY.sampleOrder}`}>
+              <Text style={styles.value}>{order.name}</Text>
+              <ComingSoonBadge label={COPY.sampleOrder} />
+            </View>
+          ) : (
+            <Pressable
+              onPress={() =>
+                router.push({ pathname: '/my/orders/[id]', params: { id: String(order.id) } })
+              }
+              hitSlop={8}
+              accessibilityRole="link">
+              <Text style={styles.link}>{order.name}</Text>
+            </Pressable>
+          )}
         </View>
         <LabelValue label={COPY.refundMethod} value={returnRequest.refundMethodLabel} />
         <LabelValue label={COPY.reason} value={returnRequest.reasonLabel} />
@@ -317,6 +341,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 14,
     color: Colors.dark,
+  },
+  sampleOrder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   link: {
     fontFamily: Fonts.primaryBold,
