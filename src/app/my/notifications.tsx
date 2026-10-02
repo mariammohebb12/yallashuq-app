@@ -1,9 +1,9 @@
 import { router, Stack } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -44,16 +44,7 @@ import { Colors } from '@/theme/theme';
  * only appended to the list it was asked for.
  */
 
-const COPY = {
-  // PLACEHOLDER COPY (not confirmed anywhere — the live site has no notifications page).
-  title: 'Notifications',
-  empty: 'You have no notifications yet.',
-  markAllRead: 'Mark all as read',
-  sampleData: 'Sample data — notifications are not available on this server yet.',
-  // Same as My Orders / the Shop tab (confirmed from the live homepage catalog's button).
-  loadMore: 'Load More',
-  loading: 'Loading...',
-};
+// Copy moved into src/i18n/locales/en.json under "notifications" (RTL/i18n work, 2026-10-01).
 
 const TYPE_ICONS: Record<string, SymbolViewProps['name']> = {
   order: { ios: 'shippingbox', android: 'package_2', web: 'package_2' },
@@ -77,10 +68,15 @@ type LoadState =
     };
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  // Fixed 2026-10-01, frontend sweep: these 3 call sites (loadMore, mark-as-read, mark-all-read)
+  // showed a native Alert.alert popup for a failed action (placeholder UI). Same inline-banner
+  // fix already applied to Home/Shop/Product Detail/My Orders/My Returns this session.
+  const [actionError, setActionError] = useState<string | null>(null);
   // Bumped each time page 1 is (re)loaded: a reply for an older list is dropped.
   const requestId = useRef(0);
   const mounted = useRef(true);
@@ -99,6 +95,7 @@ export default function NotificationsScreen() {
       return;
     }
     setLoadingMore(false);
+    setActionError(null);
     setState(
       result.ok
         ? {
@@ -137,13 +134,14 @@ export default function NotificationsScreen() {
     const id = requestId.current; // A refresh replaces the list: this page then no longer fits.
     const page = state.nextPage;
     setLoadingMore(true);
+    setActionError(null);
     const result = await fetchNotifications(page);
     if (!mounted.current || id !== requestId.current) {
       return; // The refresh resets loadingMore when it lands.
     }
     setLoadingMore(false);
     if (!result.ok) {
-      Alert.alert(result.message); // PLACEHOLDER UI, as on My Orders.
+      setActionError(result.message);
       return;
     }
     setState((current) =>
@@ -189,7 +187,7 @@ export default function NotificationsScreen() {
         const result = await markNotificationRead(notification.id);
         if (!result.ok && mounted.current) {
           // Not saved: reload so the list and the bell show the backend's real state.
-          Alert.alert(result.message); // PLACEHOLDER UI, as on My Orders.
+          setActionError(result.message);
           load();
           return;
         }
@@ -209,13 +207,14 @@ export default function NotificationsScreen() {
     }
     if (!state.isSampleData) {
       setMarkingAll(true);
+      setActionError(null);
       const result = await markAllNotificationsRead();
       if (!mounted.current) {
         return;
       }
       setMarkingAll(false);
       if (!result.ok) {
-        Alert.alert(result.message); // PLACEHOLDER UI, as on My Orders.
+        setActionError(result.message);
         return;
       }
       setUnreadNotifications(0);
@@ -237,7 +236,7 @@ export default function NotificationsScreen() {
     <View style={styles.page}>
       <Stack.Screen
         options={{
-          title: COPY.title,
+          title: t('notifications.title'),
           headerRight: showMarkAll
             ? () => (
                 <Pressable
@@ -247,7 +246,7 @@ export default function NotificationsScreen() {
                   style={({ pressed }) => (pressed || markingAll) && styles.pressed}
                   accessibilityRole="button"
                   accessibilityState={{ busy: markingAll }}>
-                  <Text style={styles.markAll}>{COPY.markAllRead}</Text>
+                  <Text style={styles.markAll}>{t('notifications.markAllRead')}</Text>
                 </Pressable>
               )
             : undefined,
@@ -268,13 +267,18 @@ export default function NotificationsScreen() {
             />
           }>
           {state.status === 'ready' && state.isSampleData && (
-            <SampleDataBanner message={COPY.sampleData} />
+            <SampleDataBanner message={t('notifications.sampleData')} />
+          )}
+          {actionError !== null && (
+            <View style={styles.actionErrorBox}>
+              <FormMessage type="error" message={actionError} />
+            </View>
           )}
           {state.status === 'error' ? (
             <FormMessage type="error" message={state.message} />
           ) : state.notifications.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>{COPY.empty}</Text>
+              <Text style={styles.emptyText}>{t('notifications.empty')}</Text>
             </View>
           ) : (
             <View style={styles.list}>
@@ -294,7 +298,9 @@ export default function NotificationsScreen() {
               style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
               accessibilityRole="button"
               accessibilityState={{ busy: loadingMore }}>
-              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
+              <Text style={styles.loadMoreText}>
+                {loadingMore ? t('notifications.loading') : t('notifications.loadMore')}
+              </Text>
             </Pressable>
           )}
         </ScrollView>
@@ -467,6 +473,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     fontSize: 12,
     color: Colors.loadMoreText,
+  },
+  actionErrorBox: {
+    marginBottom: 12,
   },
   pressed: {
     opacity: 0.7,

@@ -1,9 +1,10 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,18 +44,7 @@ import { Colors } from '@/theme/theme';
  * Returns card).
  */
 
-const COPY = {
-  // Confirmed from the live /my/returns page (its title and table headers).
-  title: 'My Returns',
-  order: 'Order',
-  pickupDate: 'Pickup Date',
-  refunded: 'Refunded',
-  // PLACEHOLDER COPY (not confirmed anywhere), same pattern as the other sample-data banners.
-  sampleData: 'Sample data — the returns endpoint is not ready yet. These are not your real returns.',
-  // Same as My Orders / the Shop tab (confirmed from the live homepage catalog's button).
-  loadMore: 'Load More',
-  loading: 'Loading...',
-};
+// Copy moved into src/i18n/locales/en.json under "myReturns" (RTL/i18n work, 2026-10-01).
 
 type LoadState =
   | { status: 'loading' }
@@ -68,8 +58,16 @@ type LoadState =
     };
 
 export default function MyReturnsScreen() {
+  const { t } = useTranslation();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [loadingMore, setLoadingMore] = useState(false);
+  // Fixed 2026-10-01, frontend sweep: loadMore's error used to show a native Alert.alert popup
+  // (placeholder UI copied from an older My Orders pattern). Same inline-banner fix already
+  // applied to Home/Shop/Product Detail/My Orders this session.
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  // Fixed 2026-10-01, frontend audit #12 (inconsistent pull-to-refresh): this screen refetches
+  // on focus but had no pull gesture, unlike Shop/My Orders/Notifications. Same pattern as those.
+  const [refreshing, setRefreshing] = useState(false);
   const requestId = useRef(0);
   const mounted = useRef(true);
 
@@ -87,6 +85,7 @@ export default function MyReturnsScreen() {
       return;
     }
     setLoadingMore(false);
+    setLoadMoreError(null);
     setState(
       result.ok
         ? {
@@ -109,6 +108,14 @@ export default function MyReturnsScreen() {
     }, [load])
   );
 
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    if (mounted.current) {
+      setRefreshing(false);
+    }
+  }
+
   // Same flow as My Orders' loadMore.
   async function loadMore() {
     if (state.status !== 'ready' || !state.hasNext || loadingMore) {
@@ -116,13 +123,14 @@ export default function MyReturnsScreen() {
     }
     const id = requestId.current; // A refresh on focus supersedes this page.
     setLoadingMore(true);
+    setLoadMoreError(null);
     const result = await fetchReturns(state.nextPage);
     if (!mounted.current || id !== requestId.current) {
       return;
     }
     setLoadingMore(false);
     if (!result.ok) {
-      Alert.alert(result.message); // PLACEHOLDER UI, as on My Orders.
+      setLoadMoreError(result.message);
       return;
     }
     setState((current) =>
@@ -143,15 +151,23 @@ export default function MyReturnsScreen() {
 
   return (
     <View style={styles.page}>
-      <Stack.Screen options={{ title: COPY.title }} />
+      <Stack.Screen options={{ title: t('myReturns.title') }} />
       {state.status === 'loading' ? (
         <View style={[styles.page, styles.centered]}>
           <ActivityIndicator color={Colors.primaryOrange} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={Colors.primaryOrange}
+            />
+          }>
           {state.status === 'ready' && state.isSampleData && (
-            <SampleDataBanner message={COPY.sampleData} />
+            <SampleDataBanner message={t('myReturns.sampleData')} />
           )}
           {state.status === 'error' ? (
             <FormMessage type="error" message={state.message} />
@@ -162,6 +178,11 @@ export default function MyReturnsScreen() {
               ))}
             </View>
           )}
+          {loadMoreError !== null && (
+            <View style={styles.loadMoreErrorBox}>
+              <FormMessage type="error" message={loadMoreError} />
+            </View>
+          )}
           {state.status === 'ready' && state.hasNext && (
             <Pressable
               onPress={loadMore}
@@ -169,7 +190,9 @@ export default function MyReturnsScreen() {
               style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
               accessibilityRole="button"
               accessibilityState={{ busy: loadingMore }}>
-              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
+              <Text style={styles.loadMoreText}>
+                {loadingMore ? t('myReturns.loading') : t('myReturns.loadMore')}
+              </Text>
             </Pressable>
           )}
         </ScrollView>
@@ -183,6 +206,7 @@ function openReturn(returnRequest: ReturnSummary) {
 }
 
 function ReturnCard({ returnRequest }: { returnRequest: ReturnSummary }) {
+  const { t } = useTranslation();
   const { order } = returnRequest;
   return (
     <Pressable
@@ -192,9 +216,9 @@ function ReturnCard({ returnRequest }: { returnRequest: ReturnSummary }) {
         returnRequest.name,
         returnRequest.progress.label,
         returnRequest.decision?.label,
-        `${COPY.order} ${order.name}`,
-        `${COPY.pickupDate} ${returnRequest.pickupDateFormatted}`,
-        `${COPY.refunded} ${returnRequest.refundedFormatted}`,
+        `${t('myReturns.order')} ${order.name}`,
+        `${t('myReturns.pickupDate')} ${returnRequest.pickupDateFormatted}`,
+        `${t('myReturns.refunded')} ${returnRequest.refundedFormatted}`,
       ]
         .filter(Boolean)
         .join(', ')}
@@ -219,7 +243,7 @@ function ReturnCard({ returnRequest }: { returnRequest: ReturnSummary }) {
 
       <View style={styles.fields}>
         <View style={styles.field}>
-          <Text style={styles.label}>{COPY.order}</Text>
+          <Text style={styles.label}>{t('myReturns.order')}</Text>
           {/* Live: the order number is the link to the order. */}
           <Pressable
             onPress={() =>
@@ -231,11 +255,11 @@ function ReturnCard({ returnRequest }: { returnRequest: ReturnSummary }) {
           </Pressable>
         </View>
         <View style={styles.field}>
-          <Text style={styles.label}>{COPY.pickupDate}</Text>
+          <Text style={styles.label}>{t('myReturns.pickupDate')}</Text>
           <Text style={styles.value}>{returnRequest.pickupDateFormatted}</Text>
         </View>
         <View style={styles.field}>
-          <Text style={styles.label}>{COPY.refunded}</Text>
+          <Text style={styles.label}>{t('myReturns.refunded')}</Text>
           <Text style={styles.value}>{returnRequest.refundedFormatted}</Text>
         </View>
       </View>
@@ -356,5 +380,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     fontSize: 12,
     color: Colors.loadMoreText,
+  },
+  loadMoreErrorBox: {
+    marginTop: 12,
   },
 });

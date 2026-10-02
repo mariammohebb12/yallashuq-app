@@ -2,9 +2,9 @@ import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,8 +15,7 @@ import {
 
 import { fetchOrders, type OrderSummary } from '@/api/orders';
 import { FormMessage } from '@/components/form-message';
-import { ORDER_COPY, OrderActionButton, SampleDataBanner } from '@/components/order-parts';
-import { PlaceholderModal } from '@/components/placeholder-modal';
+import { OrderActionButton, SampleDataBanner } from '@/components/order-parts';
 import { ReviewModal } from '@/components/review-modal';
 import { SupportModal } from '@/components/support-modal';
 import { Fonts } from '@/theme/fonts';
@@ -50,19 +49,15 @@ import { Colors } from '@/theme/theme';
  * the rest of the card. Status, seller, products etc. live on the order detail screen only.
  * No order count is shown: the backend's count (/my/counters) is wrong on staging (see #005).
  * "Edit Review" and "SUPPORT" open the live review / support popups' designs (visual only: nothing
- * is sent yet — see review-modal.tsx, support-modal.tsx). "Return" opens a placeholder popup: no
- * JSON route for it yet.
+ * is sent yet — see review-modal.tsx, support-modal.tsx). "Return" opens the real return form
+ * (src/app/my/orders/[id]/return.tsx; fixed 2026-10-01 — used to open a placeholder popup
+ * instead, even though the real form was already reachable elsewhere on Order Detail). The
+ * form's own Submit stays honestly disabled until #006 ships a JSON route for it.
  */
 
-const COPY = {
-  // Confirmed from the live /my/orders page.
-  heading: 'Sales Orders',
-  // PLACEHOLDER COPY (standard Odoo portal wording, not confirmed on yallashuq.com).
-  empty: 'There are currently no orders for your account.',
-  // Same as the Shop tab (confirmed from the live homepage catalog's button).
-  loadMore: 'Load More',
-  loading: 'Loading...',
-};
+// Copy moved into src/i18n/locales/en.json under "myOrders" (RTL/i18n work, 2026-10-01).
+// order-parts.tsx's ORDER_COPY was also converted; its "Return" / "Edit Review" / "Support"
+// labels now come from t('orderParts.*') below.
 
 type LoadState =
   | { status: 'loading' }
@@ -75,14 +70,16 @@ type LoadState =
       nextPage: number;
     };
 
-type Popup = { title: string; detail: string } | null;
-
 export default function MyOrdersScreen() {
+  const { t } = useTranslation();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [popup, setPopup] = useState<Popup>(null);
   const [reviewOrderId, setReviewOrderId] = useState<number | null>(null);
   const [supportOrderName, setSupportOrderName] = useState<string | null>(null);
+  const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Fixed 2026-10-01, frontend sweep: loadMore's error used to show a native Alert.alert popup
+  // (placeholder UI). Same inline-banner fix already applied to Home/Shop/Product Detail/Returns.
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   // Bumped each time page 1 is (re)loaded: identifies the current list, so a reply for an older
   // list is dropped.
@@ -103,6 +100,7 @@ export default function MyOrdersScreen() {
       return;
     }
     setLoadingMore(false);
+    setLoadMoreError(null);
     setState(
       result.ok
         ? {
@@ -137,13 +135,14 @@ export default function MyOrdersScreen() {
     const id = requestId.current; // A refresh replaces the list: this page then no longer fits.
     const page = state.nextPage;
     setLoadingMore(true);
+    setLoadMoreError(null);
     const result = await fetchOrders(page);
     if (!mounted.current || id !== requestId.current) {
       return; // The refresh resets loadingMore when it lands.
     }
     setLoadingMore(false);
     if (!result.ok) {
-      Alert.alert(result.message); // PLACEHOLDER UI, as on the Shop tab.
+      setLoadMoreError(result.message);
       return;
     }
     setState((current) =>
@@ -165,7 +164,7 @@ export default function MyOrdersScreen() {
 
   return (
     <View style={styles.page}>
-      <Stack.Screen options={{ title: 'My Orders' }} />
+      <Stack.Screen options={{ title: t('myOrders.title') }} />
       {state.status === 'loading' ? (
         <View style={[styles.page, styles.centered]}>
           <ActivityIndicator color={Colors.primaryOrange} />
@@ -181,13 +180,13 @@ export default function MyOrdersScreen() {
             />
           }>
           {state.status === 'ready' && state.isSampleData && <SampleDataBanner />}
-          <Text style={styles.heading}>{COPY.heading}</Text>
+          <Text style={styles.heading}>{t('myOrders.heading')}</Text>
 
           {state.status === 'error' ? (
             <FormMessage type="error" message={state.message} />
           ) : state.orders.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>{COPY.empty}</Text>
+              <Text style={styles.emptyText}>{t('myOrders.empty')}</Text>
             </View>
           ) : (
             <View style={styles.list}>
@@ -195,11 +194,21 @@ export default function MyOrdersScreen() {
                 <OrderCard
                   key={order.id}
                   order={order}
-                  onPopup={(title) => setPopup({ title, detail: order.name })}
+                  onReturn={() =>
+                    router.push({ pathname: '/my/orders/[id]/return', params: { id: String(order.id) } })
+                  }
                   onReview={() => setReviewOrderId(order.id)}
-                  onSupport={() => setSupportOrderName(order.name)}
+                  onSupport={() => {
+                    setSupportOrderName(order.name);
+                    setSupportOrderId(order.id);
+                  }}
                 />
               ))}
+            </View>
+          )}
+          {loadMoreError !== null && (
+            <View style={styles.loadMoreErrorBox}>
+              <FormMessage type="error" message={loadMoreError} />
             </View>
           )}
           {state.status === 'ready' && state.hasNext && (
@@ -209,18 +218,22 @@ export default function MyOrdersScreen() {
               style={({ pressed }) => [styles.loadMore, (pressed || loadingMore) && styles.pressed]}
               accessibilityRole="button"
               accessibilityState={{ busy: loadingMore }}>
-              <Text style={styles.loadMoreText}>{loadingMore ? COPY.loading : COPY.loadMore}</Text>
+              <Text style={styles.loadMoreText}>
+                {loadingMore ? t('myOrders.loading') : t('myOrders.loadMore')}
+              </Text>
             </Pressable>
           )}
         </ScrollView>
       )}
-      <PlaceholderModal
-        title={popup?.title ?? null}
-        detail={popup?.detail}
-        onClose={() => setPopup(null)}
-      />
       <ReviewModal orderId={reviewOrderId} onClose={() => setReviewOrderId(null)} />
-      <SupportModal orderName={supportOrderName} onClose={() => setSupportOrderName(null)} />
+      <SupportModal
+        orderName={supportOrderName}
+        orderId={supportOrderId}
+        onClose={() => {
+          setSupportOrderName(null);
+          setSupportOrderId(null);
+        }}
+      />
     </View>
   );
 }
@@ -231,15 +244,16 @@ function openOrder(order: OrderSummary) {
 
 function OrderCard({
   order,
-  onPopup,
+  onReturn,
   onReview,
   onSupport,
 }: {
   order: OrderSummary;
-  onPopup: (title: string) => void;
+  onReturn: () => void;
   onReview: () => void;
   onSupport: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={() => openOrder(order)}
@@ -260,7 +274,7 @@ function OrderCard({
           <Text style={styles.total}>{order.totalFormatted}</Text>
           {order.returnAvailable && (
             <View style={styles.returnRow}>
-              <OrderActionButton kind="return" onPress={() => onPopup(ORDER_COPY.returnTitle)} />
+              <OrderActionButton kind="return" onPress={onReturn} />
             </View>
           )}
         </View>
@@ -285,7 +299,7 @@ function OrderCard({
       <View style={styles.feedbackRow}>
         <OrderActionButton
           kind="rate"
-          label={ORDER_COPY.editReview}
+          label={t('orderParts.editReview')}
           onPress={onReview}
         />
         <OrderActionButton kind="support" onPress={onSupport} />
@@ -416,5 +430,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     fontSize: 12,
     color: Colors.loadMoreText,
+  },
+  loadMoreErrorBox: {
+    marginTop: 12,
   },
 });
