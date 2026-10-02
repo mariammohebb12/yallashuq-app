@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -31,26 +33,18 @@ import { Colors } from '@/theme/theme';
  * a star rating." and nothing is sent; while saving the button reads "Submitting..."; success
  * closes the popup (the backend sends no success message — the live page just reloads); a failure
  * shows the backend's own message.
+ *
+ * Added 2026-10-02 ("photo upload on product reviews" — real gap closed, the backend had no
+ * image field at all). The photo row below is NOT from the live site's markup — there was no
+ * reference to confirm it against, so it follows this screen's own existing visual language
+ * (same rounded chips/buttons as the rest of the app) rather than copying anything. Flag this to
+ * Mariam/Basem before treating the look as final. Up to 3 photos, picked from the library (no
+ * camera capture — keeping this to one picker call, same as the rest of the app's image use).
  */
 
-const COPY = {
-  // Confirmed from the live review popup and its script.
-  title: 'Rate Your Experience',
-  updateTitle: 'Update Your Experience',
-  orderDate: (date: string) => `Order Date: ${date}`,
-  tapToRate: 'Tap to Rate',
-  feedback: 'ADDITIONAL FEEDBACK',
-  feedbackPlaceholder: 'Tell us about the quality, fit or any details...',
-  cancel: 'Cancel',
-  submit: 'Submit',
-  update: 'Update',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  close: 'Close',
-  star: (value: number) => `${value} star${value === 1 ? '' : 's'}`,
-  // Confirmed from the live popup's script.
-  selectRating: 'Please select a star rating.',
-  submitting: 'Submitting...',
-};
+// Copy moved into src/i18n/locales/en.json under "reviewModal" (RTL/i18n work, 2026-10-01).
+// `orderDate` and `star` use i18next interpolation / count-based pluralization instead of
+// template-literal functions.
 
 type Props = {
   /** Order to review; null hides the popup. */
@@ -72,9 +66,11 @@ export function ReviewModal({ orderId, onClose }: Props) {
 }
 
 function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void }) {
+  const { t } = useTranslation();
   const [info, setInfo] = useState<ReviewInfo | 'loading' | { error: string }>('loading');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -92,6 +88,7 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
       // An existing review is shown as-is, for the customer to keep or change.
       setRating(result.info.existingRating);
       setComment(result.info.existingComment);
+      setImages(result.info.existingImages);
     });
     return () => {
       active = false;
@@ -106,7 +103,7 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
       return;
     }
     if (rating === 0) {
-      setSubmitError(COPY.selectRating);
+      setSubmitError(t('reviewModal.selectRating'));
       return;
     }
     setSubmitting(true);
@@ -116,6 +113,7 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
       productId: loaded.productId,
       rating,
       comment,
+      images,
     });
     setSubmitting(false);
     if (result.ok) {
@@ -125,15 +123,41 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
     }
   }
 
+  async function handleAddPhoto() {
+    if (images.length >= 3) {
+      return;
+    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setSubmitError(t('reviewModal.photoPermissionDenied'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.6,
+      base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]?.base64) {
+      return;
+    }
+    const asset = result.assets[0];
+    const mime = asset.mimeType || 'image/jpeg';
+    setImages((current) => [...current, `data:${mime};base64,${asset.base64}`].slice(0, 3));
+  }
+
+  function handleRemovePhoto(index: number) {
+    setImages((current) => current.filter((_, i) => i !== index));
+  }
+
   return (
     <View style={styles.card} accessibilityViewIsModal>
       <View style={styles.header}>
-        <Text style={styles.title}>{isUpdate ? COPY.updateTitle : COPY.title}</Text>
+        <Text style={styles.title}>{isUpdate ? t('reviewModal.updateTitle') : t('reviewModal.title')}</Text>
         <Pressable
           onPress={onClose}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={COPY.close}>
+          accessibilityLabel={t('reviewModal.close')}>
           <SymbolView
             name={{ ios: 'xmark', android: 'close', web: 'close' }}
             size={16}
@@ -166,13 +190,15 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
             </View>
             <View style={styles.productText}>
               <Text style={styles.productName}>{info.productName}</Text>
-              <Text style={styles.orderDate}>{COPY.orderDate(info.orderDateFormatted)}</Text>
+              <Text style={styles.orderDate}>
+                {t('reviewModal.orderDate', { date: info.orderDateFormatted })}
+              </Text>
             </View>
           </View>
         )}
 
         <View style={styles.ratingBlock}>
-          <Text style={styles.tapToRate}>{COPY.tapToRate}</Text>
+          <Text style={styles.tapToRate}>{t('reviewModal.tapToRate')}</Text>
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((value) => {
               const filled = value <= rating;
@@ -185,7 +211,7 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
                   }}
                   hitSlop={4}
                   accessibilityRole="button"
-                  accessibilityLabel={COPY.star(value)}
+                  accessibilityLabel={t('reviewModal.star', { count: value })}
                   accessibilityState={{ selected: value === rating }}>
                   <SymbolView
                     name={
@@ -202,17 +228,51 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
           </View>
         </View>
 
-        <Text style={styles.feedbackLabel}>{COPY.feedback}</Text>
+        <Text style={styles.feedbackLabel}>{t('reviewModal.feedback')}</Text>
         <TextInput
           style={styles.feedbackInput}
           value={comment}
           onChangeText={setComment}
-          placeholder={COPY.feedbackPlaceholder}
+          placeholder={t('reviewModal.feedbackPlaceholder')}
           placeholderTextColor={Colors.placeholderIcon}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
         />
+
+        <Text style={styles.feedbackLabel}>{t('reviewModal.photosLabel')}</Text>
+        <View style={styles.photoRow}>
+          {images.map((uri, index) => (
+            <View key={`${index}-${uri.slice(-12)}`} style={styles.photoThumb}>
+              <Image source={{ uri }} style={styles.photoThumbFill} contentFit="cover" />
+              <Pressable
+                onPress={() => handleRemovePhoto(index)}
+                style={styles.photoRemove}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={t('reviewModal.removePhoto')}>
+                <SymbolView
+                  name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                  size={10}
+                  tintColor={Colors.white}
+                />
+              </Pressable>
+            </View>
+          ))}
+          {images.length < 3 && (
+            <Pressable
+              onPress={handleAddPhoto}
+              style={styles.photoAdd}
+              accessibilityRole="button"
+              accessibilityLabel={t('reviewModal.addPhoto')}>
+              <SymbolView
+                name={{ ios: 'camera', android: 'add-a-photo', web: 'add-a-photo' }}
+                size={20}
+                tintColor={Colors.mutedText}
+              />
+            </Pressable>
+          )}
+        </View>
 
         {submitError && <FormMessage type="error" message={submitError} />}
 
@@ -221,7 +281,7 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
             onPress={onClose}
             accessibilityRole="button"
             style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed]}>
-            <Text style={[styles.buttonText, styles.cancelText]}>{COPY.cancel}</Text>
+            <Text style={[styles.buttonText, styles.cancelText]}>{t('reviewModal.cancel')}</Text>
           </Pressable>
           <Pressable
             onPress={handleSubmit}
@@ -234,7 +294,11 @@ function ReviewCard({ orderId, onClose }: { orderId: number; onClose: () => void
               (pressed || !loaded || submitting) && styles.pressed,
             ]}>
             <Text style={[styles.buttonText, styles.updateText]}>
-              {submitting ? COPY.submitting : isUpdate ? COPY.update : COPY.submit}
+              {submitting
+                ? t('reviewModal.submitting')
+                : isUpdate
+                  ? t('reviewModal.update')
+                  : t('reviewModal.submit')}
             </Text>
           </Pressable>
         </View>
@@ -353,6 +417,43 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.secondary,
     fontSize: 14,
     color: Colors.dark,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  photoThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: Colors.phoneCountryBackground,
+  },
+  photoThumbFill: {
+    width: '100%',
+    height: '100%',
+  },
+  photoRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoAdd: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.phoneGroupBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttons: {
     flexDirection: 'row',

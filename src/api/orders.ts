@@ -389,6 +389,12 @@ export type ReviewInfo = {
   /** 1–5, or 0 when there's no review yet. */
   existingRating: number;
   existingComment: string;
+  /**
+   * Added 2026-10-02 ("photo upload on product reviews"): data-URL strings for whatever photos
+   * are already saved on this review (never more than 3). Empty when there's no review yet or
+   * it has no photos. NOT part of the live site's popup — added for the app only.
+   */
+  existingImages: string[];
 };
 
 type ReviewResponse = { status?: string; message?: string };
@@ -401,6 +407,7 @@ type ReviewInfoResponse = ReviewResponse & {
     order_date: string;
     existing_rating?: number;
     existing_comment?: string;
+    existing_images?: string[];
   };
 };
 
@@ -433,6 +440,7 @@ export async function fetchReviewInfo(
         isUpdate,
         existingRating: isUpdate ? (product.existing_rating ?? 0) : 0,
         existingComment: isUpdate ? (product.existing_comment ?? '') : '',
+        existingImages: isUpdate ? (product.existing_images ?? []) : [],
       },
     };
   } catch (error) {
@@ -440,12 +448,17 @@ export async function fetchReviewInfo(
   }
 }
 
-/** Creates the review, or updates the customer's existing one for this order's product. */
+/**
+ * Creates the review, or updates the customer's existing one for this order's product.
+ * `images` (added 2026-10-02, optional, up to 3 data-URL strings) always replaces whatever
+ * photos the review already had — same resubmit behavior as rating/comment.
+ */
 export async function submitReview(review: {
   orderId: number;
   productId: number;
   rating: number;
   comment: string;
+  images?: string[];
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     const data = await odooJsonRpc<ReviewResponse>('/my/orders/review/submit', {
@@ -453,6 +466,7 @@ export async function submitReview(review: {
       product_id: review.productId,
       rating: review.rating,
       comment: review.comment, // Always sent ('' when left blank): the route requires it.
+      images: review.images ?? [],
     });
     return data?.status === 'success'
       ? { ok: true }
