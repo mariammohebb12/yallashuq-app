@@ -730,7 +730,10 @@
     "payNow": "Pay now",
     "title": "Checkout",
     "sampleBanner": "Sample data — not your real addresses. No payment is taken.",
-    "empty": "Your cart is empty!"
+    "empty": "Your cart is empty!",
+    "securePaymentNotice": "You'll securely enter your card details on the payment provider's own page.",
+    "securePaymentTitle": "Secure Payment",
+    "cancelPayment": "Cancel payment"
   },
   "addressBook": {
     "title": "Address Book",

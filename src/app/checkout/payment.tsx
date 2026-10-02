@@ -2,20 +2,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  type TextInputProps,
 } from 'react-native';
+import { WebView, type WebViewNavigation } from 'react-native-webview';
 
 import { fetchCheckout, type CheckoutAddress, type CheckoutData } from '@/api/checkout';
+import { getCookieHeader } from '@/api/cookie-jar';
+import { odooUrl } from '@/api/odoo-client';
 import { CheckoutSummary } from '@/components/checkout-summary';
 import { FormMessage } from '@/components/form-message';
 import { Fonts } from '@/theme/fonts';
@@ -25,52 +28,64 @@ import { Colors, HomeGradients } from '@/theme/theme';
  * Screen: Checkout, step 3 — Payment (the live /shop/payment page). Opened by "Confirm" on the
  * Delivery step, which passes the chosen delivery / billing address ids.
  *
- * ⚠️ UI-ONLY MOCK — NO REAL PAYMENT ⚠️
- * - The card fields live ONLY in this screen's local state: never logged, stored or sent anywhere,
- *   and discarded when the screen closes. "Pay now" processes nothing — it opens the placeholder
- *   "Order Confirmed" screen. (A real integration must go through the Sumit hosted payment page /
- *   tokenization, not raw card numbers typed into the app.)
- * - Addresses are the Delivery step's sample addresses; the order summary is the (mock) cart.
+ * FIXED 2026-10-02 (session 2) — was a UI-ONLY MOCK (raw card fields that sent nothing anywhere);
+ * now opens the REAL /shop/payment page in a WebView, i.e. a real hosted payment page, matching
+ * the Developer Scope's "Hosted payment page where required" requirement instead of collecting
+ * card numbers inside the app.
  *
- * Matches the live page: breadcrumb (Review Order / Delivery / Payment), "Confirm order" with the
- * chosen addresses (+ Edit → back to Delivery), "Choose a payment method" with ONE option — Card,
- * via Sumit (no Lahza option on the live site; that gap is logged separately, so no gateway
- * picker here) — then the shared Order summary and "Pay now".
+ * How it works: "Pay now" opens the real Odoo /shop/payment page (the same page the live website
+ * serves, with the real Sumit/Lahza integration already built into the backend — nothing new was
+ * invented here) inside a WebView, carrying the app's own Odoo session cookie so it shows the
+ * customer's real signed-in session. The customer picks a gateway and completes payment exactly
+ * as they would on the website. Completion is detected by watching for the real redirect the
+ * backend's own /shop/payment/validate route sends on success (`/shop/confirmation`, confirmed by
+ * reading yallashuq_seller/controllers/main.py directly) — at that point the WebView closes and
+ * the app's own Order Confirmed screen opens. A close (✕) button lets the customer back out at
+ * any time; nothing is auto-dismissed if the gateway page itself shows an error — the user sees
+ * the gateway's own real error inside the WebView.
+ *
+ * ⚠️ Known pre-existing risk, NOT fixed here (separate, already-tracked gap): the real Odoo cart
+ * only reflects products actually added via Add to Cart (odooJsonRpc /shop/cart/update_json,
+ * genuinely real — see cart.ts). Quantity CHANGES made on the app's own Cart screen are currently
+ * mock-only and are never sent to the backend (cart.ts's setCartLineQuantity, docs/backend-
+ * requests/001-cart-summary-json.md). That means if a customer changes a quantity in the app's
+ * Cart screen, the real hosted payment page opened here can show a different total than what the
+ * app displayed, because the backend never heard about that change. Flagging this plainly rather
+ * than hiding it: this screen does not introduce that risk, but it does make it reachable for the
+ * first time (there was no real payment step to expose it through before).
+ *
+ * Still sample data: the Delivery step's own address list (checkout.ts, #019) and the cart
+ * contents shown in the Confirm order / Order summary sections above the Pay button — unrelated,
+ * already-logged gaps, not touched by this fix.
+ *
+ * NOT TESTED END-TO-END ON A DEVICE: no way to run the app from this session (no device_bash all
+ * session). The cookie-passing approach (WebView `source.headers` for the first request, plus
+ * `injectedJavaScriptBeforeContentLoaded` setting `document.cookie` for everything after) is the
+ * standard react-native-webview technique for sharing a session without adding a new native
+ * cookie-manager package — but if the real device shows the gateway page as signed OUT, that's
+ * the first thing to check, and the fix would be adding `@react-native-cookies/cookies` (a new
+ * native dependency, needs a new dev build — not added speculatively here).
  */
 
-const COPY = {
-  // COPY FROM THE USER (2026-09-26): the live payment page's labels.
-  reviewOrder: 'Review Order',
-  delivery: 'Delivery',
-  payment: 'Payment',
-  confirmOrder: 'Confirm order',
-  deliveryAddress: 'Delivery address',
-  billingAddress: 'Billing address',
-  edit: 'Edit',
-  choosePayment: 'Choose a payment method',
-  card: 'Card',
-  cardNumber: 'Card Number',
-  expiryMonth: 'Expiry Month',
-  expiryYear: 'Expiry Year',
-  cvv: 'CVV',
-  citizenId: 'Citizen ID',
-  securedBy: 'Secured by Sumit Gateway',
-  payNow: 'Pay now',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  title: 'Checkout',
-  sampleBanner: 'Sample data — not your real addresses. No payment is taken.',
-  empty: 'Your cart is empty!',
-};
+// Copy moved into src/i18n/locales/en.json under "payment" (RTL/i18n work, 2026-10-01).
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; data: CheckoutData; isSampleData: boolean };
 
+/** `/shop/payment/validate` redirects here on success (confirmed in main.py, see header comment). */
+const SUCCESS_PATH = '/shop/confirmation';
+
 export default function CheckoutPaymentScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ deliveryAddressId?: string; billingAddressId?: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const requestId = useRef(0);
+  // The real hosted gateway page, opened on "Pay now". null = not open (showing the order review).
+  const [gateway, setGateway] = useState<{ cookieHeader: string | undefined } | null>(null);
+  const [gatewayLoading, setGatewayLoading] = useState(true);
+  const handledSuccess = useRef(false);
 
   const load = useCallback(async () => {
     const request = ++requestId.current;
@@ -97,7 +112,7 @@ export default function CheckoutPaymentScreen() {
   if (state.status === 'loading') {
     return (
       <View style={[styles.page, styles.centered]}>
-        <Stack.Screen options={{ title: COPY.title }} />
+        <Stack.Screen options={{ title: t('payment.title') }} />
         <ActivityIndicator color={Colors.primaryOrange} />
       </View>
     );
@@ -110,15 +125,90 @@ export default function CheckoutPaymentScreen() {
         null)
       : null;
 
+  async function openSecurePayment() {
+    handledSuccess.current = false;
+    setGatewayLoading(true);
+    const cookieHeader = await getCookieHeader(odooUrl('/shop/payment'));
+    setGateway({ cookieHeader });
+  }
+
+  function handleNavigationChange(navState: WebViewNavigation) {
+    if (handledSuccess.current) {
+      return;
+    }
+    let path: string;
+    try {
+      path = new URL(navState.url).pathname;
+    } catch {
+      return;
+    }
+    if (path.startsWith(SUCCESS_PATH)) {
+      handledSuccess.current = true;
+      setGateway(null);
+      router.replace('/checkout/confirmed');
+    }
+  }
+
+  // Sets the real session cookie on the WebView's own cookie store (not just the first request's
+  // headers) so navigations/redirects inside the real payment flow stay signed in. Standard
+  // react-native-webview technique — see the NOT TESTED note in the header comment.
+  const cookieInjection = gateway?.cookieHeader
+    ? gateway.cookieHeader
+        .split(';')
+        .map((pair) => pair.trim())
+        .filter(Boolean)
+        .map((pair) => `document.cookie = ${JSON.stringify(`${pair}; path=/`)};`)
+        .join('\n') + '\ntrue;'
+    : undefined;
+
+  if (gateway) {
+    return (
+      <SafeAreaView style={styles.page}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.gatewayHeader}>
+          <Pressable
+            onPress={() => setGateway(null)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t('payment.cancelPayment')}>
+            <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={18} tintColor={Colors.dark} />
+          </Pressable>
+          <Text style={styles.gatewayTitle} numberOfLines={1}>
+            {t('payment.securePaymentTitle')}
+          </Text>
+          <View style={styles.gatewayHeaderSpacer} />
+        </View>
+        <WebView
+          source={{
+            uri: odooUrl('/shop/payment'),
+            headers: gateway.cookieHeader ? { Cookie: gateway.cookieHeader } : undefined,
+          }}
+          injectedJavaScriptBeforeContentLoaded={cookieInjection}
+          sharedCookiesEnabled
+          thirdPartyCookiesEnabled
+          onNavigationStateChange={handleNavigationChange}
+          onLoadStart={() => setGatewayLoading(true)}
+          onLoadEnd={() => setGatewayLoading(false)}
+          style={styles.webview}
+        />
+        {gatewayLoading && (
+          <View style={[styles.page, styles.centered, styles.gatewayLoadingOverlay]}>
+            <ActivityIndicator color={Colors.primaryOrange} />
+          </View>
+        )}
+      </SafeAreaView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.page}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: COPY.title }} />
+      <Stack.Screen options={{ title: t('payment.title') }} />
       {state.status === 'ready' && state.isSampleData && (
         <View style={styles.bannerBar}>
           <View style={styles.sampleBanner} accessibilityRole="alert">
-            <Text style={styles.sampleBannerText}>{COPY.sampleBanner}</Text>
+            <Text style={styles.sampleBannerText}>{t('payment.sampleBanner')}</Text>
           </View>
         </View>
       )}
@@ -128,33 +218,33 @@ export default function CheckoutPaymentScreen() {
           <FormMessage type="error" message={state.message} />
         ) : state.data.cart.sellerGroups.length === 0 ? (
           <View style={styles.card}>
-            <Text style={styles.muted}>{COPY.empty}</Text>
+            <Text style={styles.muted}>{t('payment.empty')}</Text>
           </View>
         ) : (
           <View style={styles.sections}>
             {/* ---- Confirm order ---- */}
-            <Section title={COPY.confirmOrder}>
+            <Section title={t('payment.confirmOrder')}>
               <AddressSummary
-                label={COPY.deliveryAddress}
+                label={t('payment.deliveryAddress')}
                 address={findAddress(params.deliveryAddressId)}
               />
               <View style={styles.divider} />
               <AddressSummary
-                label={COPY.billingAddress}
+                label={t('payment.billingAddress')}
                 address={findAddress(params.billingAddressId)}
               />
             </Section>
 
             {/* ---- Choose a payment method ---- */}
-            <Section title={COPY.choosePayment}>
-              <CardPaymentOption />
+            <Section title={t('payment.choosePayment')}>
+              <SecurePaymentNotice />
             </Section>
 
             <CheckoutSummary cart={state.data.cart} />
 
-            {/* ---- Pay now (processes nothing; see the header comment) ---- */}
+            {/* ---- Pay now: opens the real hosted gateway page (see header comment) ---- */}
             <Pressable
-              onPress={() => router.replace('/checkout/confirmed')}
+              onPress={openSecurePayment}
               accessibilityRole="button"
               style={({ pressed }) => pressed && styles.pressed}>
               <LinearGradient
@@ -168,7 +258,7 @@ export default function CheckoutPaymentScreen() {
                   size={15}
                   tintColor={Colors.white}
                 />
-                <Text style={styles.payText}>{COPY.payNow}</Text>
+                <Text style={styles.payText}>{t('payment.payNow')}</Text>
               </LinearGradient>
             </Pressable>
           </View>
@@ -180,22 +270,24 @@ export default function CheckoutPaymentScreen() {
 
 /** Review Order / Delivery / Payment — earlier steps are tappable to go back. */
 function Breadcrumb() {
+  const { t } = useTranslation();
   return (
     <View style={styles.breadcrumb} accessibilityRole="header">
       <Pressable onPress={() => router.navigate('/cart')} hitSlop={8} accessibilityRole="link">
-        <Text style={styles.crumbLink}>{COPY.reviewOrder}</Text>
+        <Text style={styles.crumbLink}>{t('payment.reviewOrder')}</Text>
       </Pressable>
       <Text style={styles.crumbSeparator}>/</Text>
       <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="link">
-        <Text style={styles.crumbLink}>{COPY.delivery}</Text>
+        <Text style={styles.crumbLink}>{t('payment.delivery')}</Text>
       </Pressable>
       <Text style={styles.crumbSeparator}>/</Text>
-      <Text style={styles.crumbActive}>{COPY.payment}</Text>
+      <Text style={styles.crumbActive}>{t('payment.payment')}</Text>
     </View>
   );
 }
 
 function AddressSummary({ label, address }: { label: string; address: CheckoutAddress | null }) {
+  const { t } = useTranslation();
   const line = address
     ? [
         address.street,
@@ -220,72 +312,38 @@ function AddressSummary({ label, address }: { label: string; address: CheckoutAd
       </View>
       {/* Back to the Delivery step. */}
       <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="link">
-        <Text style={styles.link}>{COPY.edit}</Text>
+        <Text style={styles.link}>{t('payment.edit')}</Text>
       </Pressable>
     </View>
   );
 }
 
 /**
- * The single live payment option. Its fields stay in this component's state only (never sent,
- * logged or saved) and are discarded with it.
+ * Replaces the old in-app card form: no card fields are collected here at all. "Pay now" opens
+ * the real gateway page (Sumit/Lahza, whichever the backend has enabled) in a WebView — this is
+ * just the explanatory card shown before that.
  */
-function CardPaymentOption() {
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryMonth, setExpiryMonth] = useState('');
-  const [expiryYear, setExpiryYear] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [citizenId, setCitizenId] = useState('');
-
+function SecurePaymentNotice() {
+  const { t } = useTranslation();
   return (
-    <View
-      style={[styles.option, styles.optionSelected]}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: true }}>
+    <View style={[styles.option, styles.optionSelected]}>
       <View style={styles.optionHeader}>
-        <View style={styles.radio}>
-          <View style={styles.radioDot} />
-        </View>
         <SymbolView
           name={{ ios: 'creditcard', android: 'credit_card', web: 'credit_card' }}
           size={18}
           tintColor={Colors.dark}
         />
-        <Text style={styles.optionName}>{COPY.card}</Text>
+        <Text style={styles.optionName}>{t('payment.card')}</Text>
       </View>
-
-      <CardField label={COPY.cardNumber} value={cardNumber} onChangeText={setCardNumber} maxLength={19} />
-      <CardField label={COPY.expiryMonth} value={expiryMonth} onChangeText={setExpiryMonth} maxLength={2} />
-      <CardField label={COPY.expiryYear} value={expiryYear} onChangeText={setExpiryYear} maxLength={4} />
-      <CardField label={COPY.cvv} value={cvv} onChangeText={setCvv} maxLength={4} secureTextEntry />
-      <CardField label={COPY.citizenId} value={citizenId} onChangeText={setCitizenId} />
-
+      <Text style={styles.securePaymentDescription}>{t('payment.securePaymentNotice')}</Text>
       <View style={styles.secured}>
         <SymbolView
           name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           size={12}
           tintColor={Colors.helperText}
         />
-        <Text style={styles.securedText}>{COPY.securedBy}</Text>
+        <Text style={styles.securedText}>{t('payment.securedBy')}</Text>
       </View>
-    </View>
-  );
-}
-
-/** Numeric field; autofill / password-manager saving is off on purpose (UI-only mock). */
-function CardField({ label, ...inputProps }: TextInputProps & { label: string }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="number-pad"
-        autoComplete="off"
-        autoCorrect={false}
-        textContentType="none"
-        importantForAutofill="no"
-        {...inputProps}
-      />
     </View>
   );
 }
@@ -453,24 +511,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: Colors.primaryOrange,
   },
-  field: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontFamily: Fonts.primaryBold,
-    fontSize: 14,
-    color: Colors.dark,
-  },
-  input: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 14,
+  securePaymentDescription: {
     fontFamily: Fonts.primary,
-    fontSize: 15,
-    color: Colors.dark,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.mutedText,
   },
   secured: {
     flexDirection: 'row',
@@ -497,5 +542,36 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  gatewayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.inputBorder,
+    backgroundColor: Colors.white,
+  },
+  gatewayTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: Fonts.primaryBold,
+    fontSize: 16,
+    color: Colors.dark,
+  },
+  gatewayHeaderSpacer: {
+    width: 18,
+  },
+  webview: {
+    flex: 1,
+  },
+  gatewayLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.pageBackground,
   },
 });
