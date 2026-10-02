@@ -224,3 +224,63 @@ export function markNotificationRead(id: number): Promise<NotificationActionResu
 export function markAllNotificationsRead(): Promise<NotificationActionResult> {
   return postAction('/my/notifications/read_all');
 }
+
+/*
+ * ---------------------------------------------------------------------------------------------
+ * Notification preferences (added 2026-10-02, tracker #25, session 7): which categories a
+ * customer wants to be notified about at all — turning one off stops BOTH the in-app row and
+ * the push for it, per the backend's own `_notify()` (notification.py). 'general'/'support'
+ * aren't included — not user-togglable, same reasoning as not letting someone silence an
+ * account-security message. NOT YET TESTED END-TO-END (new backend routes, same as the rest of
+ * this file's real routes).
+ * ---------------------------------------------------------------------------------------------
+ */
+
+export type NotificationPreferenceKey = 'order_updates' | 'warranty_updates' | 'return_updates' | 'promotional';
+
+export type NotificationPreferences = Record<NotificationPreferenceKey, boolean>;
+
+type PreferencesJsonResponse = {
+  status: 'success' | (string & {});
+  message?: string;
+  preferences?: Partial<Record<NotificationPreferenceKey, boolean>>;
+};
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  order_updates: true,
+  warranty_updates: true,
+  return_updates: true,
+  promotional: true,
+};
+
+export type NotificationPreferencesResult =
+  | { ok: true; preferences: NotificationPreferences }
+  | { ok: false; message: string };
+
+export async function fetchNotificationPreferences(): Promise<NotificationPreferencesResult> {
+  try {
+    const data = await odooJsonRpc<PreferencesJsonResponse>('/my/notifications/preferences/json', {});
+    if (data?.status !== 'success') {
+      return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+    }
+    return { ok: true, preferences: { ...DEFAULT_PREFERENCES, ...data.preferences } };
+  } catch (error) {
+    return { ok: false, message: errorMessage(error) };
+  }
+}
+
+export async function saveNotificationPreferences(
+  preferences: NotificationPreferences
+): Promise<NotificationPreferencesResult> {
+  try {
+    const data = await odooJsonRpc<PreferencesJsonResponse>('/my/notifications/preferences/save', {
+      preferences,
+    });
+    if (data?.status !== 'success') {
+      return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+    }
+    return { ok: true, preferences: { ...DEFAULT_PREFERENCES, ...data.preferences } };
+  } catch (error) {
+    return { ok: false, message: errorMessage(error) };
+  }
+}

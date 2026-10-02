@@ -237,8 +237,12 @@ export default function NotificationsScreen() {
       <Stack.Screen
         options={{
           title: t('notifications.title'),
-          headerRight: showMarkAll
-            ? () => (
+          // Added 2026-10-02 (tracker #25, session 7): a settings entry point to the new
+          // per-category notification preferences screen, always shown next to (or instead of)
+          // "Mark all as read".
+          headerRight: () => (
+            <View style={styles.headerRight}>
+              {showMarkAll && (
                 <Pressable
                   onPress={markAll}
                   disabled={markingAll}
@@ -248,8 +252,21 @@ export default function NotificationsScreen() {
                   accessibilityState={{ busy: markingAll }}>
                   <Text style={styles.markAll}>{t('notifications.markAllRead')}</Text>
                 </Pressable>
-              )
-            : undefined,
+              )}
+              <Pressable
+                onPress={() => router.push('/my/notification-preferences')}
+                hitSlop={8}
+                style={({ pressed }) => pressed && styles.pressed}
+                accessibilityRole="button"
+                accessibilityLabel={t('notifications.preferences')}>
+                <SymbolView
+                  name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
+                  size={22}
+                  tintColor={Colors.dark}
+                />
+              </Pressable>
+            </View>
+          ),
         }}
       />
       {state.status === 'loading' ? (
@@ -444,6 +461,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primarySemiBold,
     fontSize: 14,
     color: Colors.primaryOrange,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
   emptyBox: {
     borderRadius: 16,
