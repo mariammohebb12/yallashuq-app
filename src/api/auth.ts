@@ -4,6 +4,7 @@ import { clearCookies } from './cookie-jar';
 import { extractAlert, extractForm, extractHiddenFields } from './html-form';
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { odooJsonRpc, odooRequest, OdooRpcError } from './odoo-client';
+import { unregisterPushToken } from './push-notifications';
 
 /*
  * ============================================================================================
@@ -146,6 +147,11 @@ export function resendLoginOtp(login: string): Promise<LoginOtpResult> {
  * The cart badge goes back to 0: the backend's cart belongs to the old session.
  */
 export async function signOut(): Promise<void> {
+  // Fixed 2026-10-02 (tracker #25/#31): stop this device's push token from reaching whoever
+  // signs in here next, now that a real backend route exists to unregister it. Done before the
+  // session itself ends (the unregister call needs to still be authenticated as this user) and
+  // best-effort like the logout call below — a failure here still signs the app out locally.
+  await unregisterPushToken();
   try {
     await odooRequest('/web/session/logout');
   } catch {
