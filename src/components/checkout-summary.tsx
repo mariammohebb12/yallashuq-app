@@ -24,6 +24,10 @@ const COPY = {
   sellerWiseDelivery: 'Seller-wise Delivery',
   freeDelivery: 'You got FREE delivery.',
   free: 'FREE',
+  // Fixed 2026-10-02 (session 3, tracker #1): shown when a seller group's delivery charge isn't
+  // calculated yet (real per-seller delivery logic doesn't exist on the backend yet — see
+  // cart.ts's header comment) rather than leaving the row blank.
+  notCalculated: 'Calculated at delivery',
   // COPY FROM THE USER (2026-09-26).
   discountPlaceholder: 'Gift card or discount code',
 };
@@ -82,7 +86,7 @@ function SellerDelivery({ group }: { group: CartSellerGroup }) {
         {isFree && <Text style={styles.freeNote}>{COPY.freeDelivery}</Text>}
       </View>
       <Text style={[styles.sellerCharge, isFree && styles.freeCharge]}>
-        {isFree ? COPY.free : delivery.amountFormatted}
+        {isFree ? COPY.free : delivery.calculated ? delivery.amountFormatted : COPY.notCalculated}
       </Text>
     </View>
   );

@@ -1,10 +1,5 @@
 import { NETWORK_ERROR_MESSAGE } from './messages';
-import {
-  mockAddProduct,
-  mockCartSummary,
-  mockSetQuantity,
-  type MockProduct,
-} from './mocks/cart-summary.mock';
+import { mockAddProduct, mockCartSummary, type MockProduct } from './mocks/cart-summary.mock';
 import { odooJsonRpc } from './odoo-client';
 
 /*
@@ -115,28 +110,151 @@ export type CartSummaryResult =
   | { ok: true; cart: CartSummary; isSampleData: boolean }
   | { ok: false; message: string };
 
-/**
- * TEMPORARY: returns the mock cart (isSampleData: true).
- * TODO: replace with the real cart-contents route response once the backend endpoint exists
- * (e.g. odooJsonRpc('/shop/cart/summary_json', {}) mapped into CartSummary) — see
- * docs/backend-requests/001-cart-summary-json.md.
+/*
+ * FIXED 2026-10-02 (session 3, tracker #1) — real cart contents, PARTIAL fix (honestly scoped).
+ *
+ * /shop/cart/json (new, yallashuq_seller/controllers/main.py) returns real product lines grouped
+ * by each product's real seller, and the order's real totals (amount_untaxed/tax/total — exactly
+ * what Odoo itself computed, not recalculated here).
+ *
+ * Deliberately NOT real: per-seller delivery amounts. Investigated first — the backend route that
+ * should compute the "free threshold → Super Admin rule → seller's own charge" hierarchy
+ * (/api/delivery/rate, yallashuq_delivery_hub) is a hardcoded stub that always returns 50, not
+ * real logic. No real per-seller delivery calculation exists anywhere in the backend to read.
+ * Rather than guess at that allocation — which would mean inventing money-affecting logic — each
+ * seller group's `delivery.calculated` is `false` (a case this type already had a field for) and
+ * `delivery.amountFormatted` is shown as "—" by the Cart screen instead of a fabricated number.
+ * `totals.deliveryFormatted` uses the order's real, unallocated delivery total when one exists.
  */
+
+type CartJsonLine = {
+  line_id: number;
+  product_id: number | false;
+  product_template_id: number | false;
+  name: string;
+  image: string | false;
+  quantity: number;
+  price_unit: number;
+  price_subtotal: number;
+  price_total: number;
+};
+
+type CartJsonSellerGroup = {
+  seller: { id: number; name: string; is_marketplace: boolean };
+  lines: CartJsonLine[];
+  subtotal: number;
+  delivery: { calculated: false };
+};
+
+type CartJsonResponse = {
+  status: 'success' | (string & {});
+  message?: string;
+  order_id: number | false;
+  cart_quantity: number;
+  sellers: CartJsonSellerGroup[];
+  delivery_total: number;
+  amount_untaxed: number;
+  amount_tax: number;
+  amount_total: number;
+  currency_symbol: string;
+  currency_position: 'before' | 'after';
+  warnings: string[];
+};
+
+/** Same formatting as the live site's own card script (catalog.ts's formatAmount). */
+function formatAmount(symbol: string, position: 'before' | 'after', amount: number): string {
+  const value = Number(amount || 0).toFixed(2);
+  return position === 'after' ? `${value}${symbol}` : `${symbol}${value}`;
+}
+
 export async function fetchCartSummary(): Promise<CartSummaryResult> {
-  return { ok: true, cart: mockCartSummary(), isSampleData: true };
+  let data: CartJsonResponse;
+  try {
+    data = await odooJsonRpc<CartJsonResponse>('/shop/cart/json', {});
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error && error.message ? error.message : NETWORK_ERROR_MESSAGE,
+    };
+  }
+  if (data?.status !== 'success') {
+    return { ok: false, message: data?.message || NETWORK_ERROR_MESSAGE };
+  }
+
+  const money = (amount: number) => formatAmount(data.currency_symbol, data.currency_position, amount);
+
+  const sellerGroups: CartSellerGroup[] = data.sellers.map((group) => ({
+    seller: {
+      id: group.seller.id,
+      name: group.seller.name,
+      legalName: group.seller.name,
+      isMarketplace: group.seller.is_marketplace,
+    },
+    lines: group.lines.map((line) => ({
+      lineId: line.line_id,
+      productId: line.product_id || 0,
+      productTemplateId: line.product_template_id || 0,
+      name: line.name,
+      variantDescription: '',
+      imageUrl: line.image || '',
+      quantity: line.quantity,
+      maxQuantity: null,
+      priceUnitFormatted: money(line.price_unit),
+      priceTotalFormatted: money(line.price_total),
+      warning: '',
+    })),
+    subtotalFormatted: money(group.subtotal),
+    delivery: {
+      calculated: false,
+      // Not shown by the app as a number — see the header comment on why this isn't computed.
+      amountFormatted: '',
+      isFree: false,
+      freeThresholdFormatted: null,
+      remainingForFreeFormatted: null,
+    },
+  }));
+
+  return {
+    ok: true,
+    isSampleData: false,
+    cart: {
+      orderId: data.order_id || null,
+      cartQuantity: data.cart_quantity,
+      sellerGroups,
+      totals: {
+        subtotalFormatted: money(data.amount_untaxed),
+        deliveryFormatted: money(data.delivery_total),
+        taxFormatted: money(data.amount_tax),
+        discountFormatted: null,
+        totalFormatted: money(data.amount_total),
+      },
+      warnings: data.warnings ?? [],
+    },
+  };
 }
 
 /**
  * Changes a line's quantity; 0 removes the line.
  *
- * TEMPORARY: only changes the mock cart.
- * TODO: call the existing route the website's cart page uses —
- * odooJsonRpc('/shop/cart/update_json', {line_id, product_id, set_qty, display: false}) — once
- * lines come from the backend (mock line ids don't exist server-side).
+ * FIXED 2026-10-02 (session 3, tracker #1): calls the real route the live site's own cart page
+ * uses (website_sale) — set_qty replaces the line's quantity outright (0 removes the line).
  */
 export async function setCartLineQuantity(
   line: Pick<CartLine, 'lineId' | 'productId'>,
   quantity: number
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  mockSetQuantity(line.lineId, quantity);
-  return { ok: true };
+  try {
+    await odooJsonRpc<{ cart_quantity?: number } | null>('/shop/cart/update_json', {
+      line_id: line.lineId,
+      product_id: line.productId,
+      set_qty: quantity,
+      display: false,
+    });
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error && error.message ? error.message : NETWORK_ERROR_MESSAGE,
+    };
+  }
 }
