@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Pressable,
@@ -33,30 +34,17 @@ import { Colors, HomeGradients } from '@/theme/theme';
  * discount code field, Seller-wise Delivery), then Confirm / Back to cart.
  * One checkout and one payment for the whole cart, even with several sellers.
  *
- * "Add address" opens src/app/checkout/address.tsx (adds to the mock list only).
  * "Confirm" opens the Payment step (src/app/checkout/payment.tsx) with the chosen addresses.
  * The Order summary card is shared with Payment (src/components/checkout-summary.tsx).
- * Not functional yet: Edit and Apply only log. Selecting an address / delivery method only
- * changes what's highlighted here.
+ *
+ * Fixed 2026-10-02: the address list is now real (src/api/checkout.ts). "Add address" and
+ * "Edit" now open the real Address Book screen (src/app/my/addresses/[id].tsx — "new" or the
+ * address id), the same screen My Account's Address Book uses, instead of logging / the old
+ * mock-only Add Address form. Selecting a delivery method only changes what's highlighted here
+ * (no real "choose a method" route confirmed yet).
  */
 
-const COPY = {
-  // Confirmed from staging's /shop/checkout page.
-  deliveryAddress: 'Delivery address',
-  edit: 'Edit',
-  addAddress: 'Add address',
-  chooseDelivery: 'Choose a delivery method',
-  billingAddress: 'Billing address',
-  sameAsDelivery: 'Same as delivery address',
-  confirm: 'Confirm',
-  or: 'or',
-  backToCart: 'Back to cart',
-  // COPY FROM THE USER (2026-09-26).
-  sampleBanner: 'Sample data — not your real addresses',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  title: 'Checkout',
-  empty: 'Your cart is empty!',
-};
+// Copy moved into src/i18n/locales/en.json under "checkout" (RTL/i18n work, 2026-10-01).
 
 type LoadState =
   | { status: 'loading' }
@@ -64,6 +52,7 @@ type LoadState =
   | { status: 'ready'; data: CheckoutData; isSampleData: boolean };
 
 export default function CheckoutAddressScreen() {
+  const { t } = useTranslation();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [deliveryAddressId, setDeliveryAddressId] = useState<number | null>(null);
   const [billingAddressId, setBillingAddressId] = useState<number | null>(null);
@@ -101,7 +90,7 @@ export default function CheckoutAddressScreen() {
   if (state.status === 'loading') {
     return (
       <View style={[styles.page, styles.centered]}>
-        <Stack.Screen options={{ title: COPY.title }} />
+        <Stack.Screen options={{ title: t('checkout.title') }} />
         <ActivityIndicator color={Colors.primaryOrange} />
       </View>
     );
@@ -109,11 +98,11 @@ export default function CheckoutAddressScreen() {
 
   return (
     <View style={styles.page}>
-      <Stack.Screen options={{ title: COPY.title }} />
+      <Stack.Screen options={{ title: t('checkout.title') }} />
       {state.status === 'ready' && state.isSampleData && (
         <View style={styles.bannerBar}>
           <View style={styles.sampleBanner} accessibilityRole="alert">
-            <Text style={styles.sampleBannerText}>{COPY.sampleBanner}</Text>
+            <Text style={styles.sampleBannerText}>{t('checkout.sampleBanner')}</Text>
           </View>
         </View>
       )}
@@ -122,13 +111,13 @@ export default function CheckoutAddressScreen() {
           <FormMessage type="error" message={state.message} />
         ) : state.data.cart.sellerGroups.length === 0 ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>{COPY.empty}</Text>
+            <Text style={styles.emptyText}>{t('checkout.empty')}</Text>
             <BackToCart />
           </View>
         ) : (
           <View style={styles.sections}>
             {/* ---- Delivery address ---- */}
-            <Section title={COPY.deliveryAddress}>
+            <Section title={t('checkout.deliveryAddress')}>
               <AddressList
                 addresses={state.data.addresses}
                 selectedId={deliveryAddressId}
@@ -137,7 +126,7 @@ export default function CheckoutAddressScreen() {
             </Section>
 
             {/* ---- Choose a delivery method ---- */}
-            <Section title={COPY.chooseDelivery}>
+            <Section title={t('checkout.chooseDelivery')}>
               {state.data.deliveryMethods.map((method) => {
                 const selected = method.id === deliveryMethodId;
                 return (
@@ -156,14 +145,14 @@ export default function CheckoutAddressScreen() {
             </Section>
 
             {/* ---- Billing address ---- */}
-            <Section title={COPY.billingAddress}>
+            <Section title={t('checkout.billingAddress')}>
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>{COPY.sameAsDelivery}</Text>
+                <Text style={styles.switchLabel}>{t('checkout.sameAsDelivery')}</Text>
                 <Switch
                   value={billingSame}
                   onValueChange={setBillingSame}
                   trackColor={{ true: Colors.primaryOrange, false: Colors.iconButtonBorder }}
-                  accessibilityLabel={COPY.sameAsDelivery}
+                  accessibilityLabel={t('checkout.sameAsDelivery')}
                 />
               </View>
               {!billingSame && (
@@ -199,11 +188,11 @@ export default function CheckoutAddressScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.confirmButton}>
-                  <Text style={styles.confirmText}>{COPY.confirm}</Text>
+                  <Text style={styles.confirmText}>{t('checkout.confirm')}</Text>
                 </LinearGradient>
               </Pressable>
               <View style={styles.orRow}>
-                <Text style={styles.muted}>{COPY.or}</Text>
+                <Text style={styles.muted}>{t('checkout.or')}</Text>
                 <BackToCart />
               </View>
             </View>
@@ -232,6 +221,7 @@ function AddressList({
   selectedId: number | null;
   onSelect: (id: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.addressList}>
       {addresses.map((address) => (
@@ -242,9 +232,9 @@ function AddressList({
           onSelect={() => onSelect(address.id)}
         />
       ))}
-      {/* Opens the Add Address screen (saves to the mock list only). */}
+      {/* Opens the real Address Book add screen. */}
       <Pressable
-        onPress={() => router.push('/checkout/address')}
+        onPress={() => router.push('/my/addresses/new')}
         accessibilityRole="button"
         style={({ pressed }) => [styles.addCard, pressed && styles.pressed]}>
         <SymbolView
@@ -252,7 +242,7 @@ function AddressList({
           size={16}
           tintColor={Colors.primaryOrange}
         />
-        <Text style={styles.addText}>{COPY.addAddress}</Text>
+        <Text style={styles.addText}>{t('checkout.addAddress')}</Text>
       </Pressable>
     </View>
   );
@@ -267,6 +257,7 @@ function AddressCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
   const lines = [
     address.street,
     address.street2,
@@ -289,21 +280,22 @@ function AddressCard({
           </Text>
         ))}
       </View>
-      {/* PLACEHOLDER: editing isn't built yet — only logs. */}
+      {/* Opens the real Address Book edit screen. */}
       <Pressable
-        onPress={() => console.log('Edit address pressed', address.id)}
+        onPress={() => router.push(`/my/addresses/${address.id}`)}
         hitSlop={8}
         accessibilityRole="link">
-        <Text style={styles.link}>{COPY.edit}</Text>
+        <Text style={styles.link}>{t('checkout.edit')}</Text>
       </Pressable>
     </Pressable>
   );
 }
 
 function BackToCart() {
+  const { t } = useTranslation();
   return (
     <Pressable onPress={() => router.navigate('/cart')} hitSlop={8} accessibilityRole="link">
-      <Text style={styles.link}>{COPY.backToCart}</Text>
+      <Text style={styles.link}>{t('checkout.backToCart')}</Text>
     </Pressable>
   );
 }

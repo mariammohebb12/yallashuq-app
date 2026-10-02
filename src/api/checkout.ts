@@ -1,18 +1,22 @@
+import { fetchAddresses, type Address } from './addresses';
 import { fetchCartSummary, type CartSummary } from './cart';
 import { extractForm, extractHiddenFields } from './html-form';
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
-import { MOCK_DELIVERY_METHOD_NAME, mockAddresses } from './mocks/checkout.mock';
+import { MOCK_DELIVERY_METHOD_NAME } from './mocks/checkout.mock';
 import { odooRequest } from './odoo-client';
 
 /*
  * ---------------------------------------------------------------------------------------------
  * Checkout, step 1: Address & Delivery (the live /shop/checkout page).
  *
- * ⚠️ BLOCKED ON BACKEND — ADDRESSES RUN ON TEMPORARY MOCK DATA, NOT READY TO GO LIVE ⚠️
- * The live page renders the saved addresses and delivery methods as HTML only. Until a JSON
- * source exists, fetchCheckout returns SAMPLE addresses (src/api/mocks/checkout.mock.ts). The
- * order summary is the Cart's own data (fetchCartSummary — itself still the mock cart, #001), so
- * both screens always agree. Nothing is calculated here.
+ * Fixed 2026-10-02: the address list here was sample data because no JSON address route existed
+ * yet (docs/backend-requests/019). The real Address Book routes built for tracker #22
+ * (`/my/addresses/json` etc., src/api/addresses.ts) now cover this — fetchCheckout uses them
+ * below, so the addresses shown here are the customer's real saved ones.
+ *
+ * STILL NOT REAL: delivery methods (no backend route confirmed for choosing one — name stays
+ * `MOCK_DELIVERY_METHOD_NAME`, price is the real cart's own delivery total) and the Order
+ * summary's cart totals come from `fetchCartSummary`.
  * ---------------------------------------------------------------------------------------------
  */
 
@@ -30,6 +34,21 @@ export type CheckoutAddress = {
   email: string;
   phone: string;
 };
+
+function toCheckoutAddress(a: Address): CheckoutAddress {
+  return {
+    id: a.id,
+    name: a.name,
+    street: a.street,
+    street2: a.street2,
+    city: a.city,
+    region: a.stateName,
+    zip: a.zip,
+    country: a.countryName,
+    email: a.email,
+    phone: a.phone,
+  };
+}
 
 /** What the Add Address form collects (the backend assigns the id). */
 export type NewAddress = Omit<CheckoutAddress, 'id'>;
@@ -54,22 +73,27 @@ export type CheckoutResult =
   | { ok: false; message: string };
 
 /**
- * TEMPORARY: sample addresses + the (mock) cart. The delivery method's price is the cart's own
- * delivery total. TODO: real addresses / delivery methods once a JSON source exists.
+ * Real addresses (src/api/addresses.ts); the cart is still fetchCartSummary's own data. The
+ * delivery method is still a placeholder name (no real "choose a method" route confirmed) — its
+ * price is the real cart's own delivery total, so the number itself is correct.
  */
 export async function fetchCheckout(): Promise<CheckoutResult> {
-  const cartResult = await fetchCartSummary();
+  const [cartResult, addressesResult] = await Promise.all([fetchCartSummary(), fetchAddresses()]);
   if (!cartResult.ok) {
     return cartResult;
   }
+  if (!addressesResult.ok) {
+    return { ok: false, message: addressesResult.message };
+  }
   const { cart } = cartResult;
-  const addresses = mockAddresses();
+  const addresses = addressesResult.addresses.map(toCheckoutAddress);
+  const defaultAddress = addressesResult.addresses.find((a) => a.isDefault);
   return {
     ok: true,
-    isSampleData: true,
+    isSampleData: false,
     data: {
       addresses,
-      defaultAddressId: addresses[0]?.id ?? null,
+      defaultAddressId: defaultAddress?.id ?? addresses[0]?.id ?? null,
       deliveryMethods: [
         { id: -1, name: MOCK_DELIVERY_METHOD_NAME, priceFormatted: cart.totals.deliveryFormatted },
       ],
