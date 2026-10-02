@@ -1,6 +1,7 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { signOut } from '@/api/auth';
@@ -8,6 +9,10 @@ import { fetchProfileDetails, type ProfileDetails } from '@/api/profile';
 import { fetchSession, type Session } from '@/api/session';
 import { ComingSoonBadge } from '@/components/coming-soon';
 import { FormMessage } from '@/components/form-message';
+import { PickerModal } from '@/components/picker-modal';
+import { setAppLanguage } from '@/i18n';
+import { SUPPORTED_LANGUAGES } from '@/i18n/direction';
+import { chevronForwardIcon } from '@/theme/directional-icon';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
@@ -41,63 +46,9 @@ import LoginScreen from '@/app/login';
  * It ends the session (src/api/auth.ts signOut) and the tab then shows the Login screen.
  */
 
-const COPY = {
-  // Confirmed from the live "My Account" page.
-  cards: {
-    shop: {
-      title: 'Continue Shopping',
-      description: 'Browse categories and discover products',
-    },
-    orders: { title: 'My Orders', description: 'Check order history and tracking updates' },
-    documents: {
-      title: 'Marketplace Documents',
-      description: 'View your order confirmations and receipts',
-    },
-    // Live card says "Gift & Vouchers"; the app uses its screen's title instead (user decision
-    // 2026-09-30, matches the live /my/gift-cards page title).
-    giftCards: {
-      title: 'My Gift Cards',
-      description: 'View your available gift cards and vouchers',
-    },
-    wallet: { title: 'eWallet', description: 'Manage your balance and view transaction history' },
-    security: {
-      title: 'Connection & Security',
-      description: 'Configure your connection parameters',
-    },
-    // Confirmed from the live /contactus page (its heading and intro line); the live "My
-    // Account" page has no such card — the site links it from the header ("Contact Support").
-    contact: {
-      title: 'Contact Us',
-      description: 'Share your query and our team will get back to you quickly.',
-    },
-    // Confirmed from the live /helpdesk page's heading. No description: the live site has no
-    // visible link card for this form (only a hidden default "Help" menu item).
-    helpdesk: { title: 'Submit a Ticket' },
-    // Confirmed from the live "My Account" page's Tickets card (present in its HTML, but hidden
-    // there with d-none).
-    tickets: { title: 'Tickets', description: 'Follow all your helpdesk tickets' },
-    // Confirmed from the live "My Account" page's Quotations card (hidden there with d-none); it
-    // has a title only.
-    quotations: { title: 'Quotations to review' },
-    // Confirmed from the live /my/invoices page's heading. No description: the live account
-    // page's invoice cards say "Follow, download or pay …" and this screen has no payment.
-    invoices: { title: 'Invoices & Bills' },
-    // Confirmed from the live /my/returns page's title. No description: the live "My Account"
-    // page has no Returns card to take one from.
-    returns: { title: 'My Returns' },
-  },
-  editInformation: 'Edit information',
-  // From the client's request (2026-09-28). The live site's link says "Log Out" / "Logout".
-  signOut: 'Sign Out',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  address: 'Address',
-  phone: 'Phone',
-  email: 'Email',
-  missing: 'Not available yet',
-  // From the client's request (2026-09-28): shown only when the customer has none saved.
-  addAddress: 'Add your address',
-  addPhone: 'Add your phone number',
-};
+// Copy moved into src/i18n/locales/en.json under the "account" key (RTL/i18n work,
+// 2026-10-01) — see that file for the same strings with their original sourcing notes
+// (confirmed-from-live-site vs. placeholder). Looked up here via useTranslation()/t().
 
 type ScreenState =
   | { status: 'loading' }
@@ -118,8 +69,10 @@ type AccountCard = {
 };
 
 export default function AccountScreen() {
+  const { t, i18n } = useTranslation();
   const [state, setState] = useState<ScreenState>({ status: 'loading' });
   const [signingOut, setSigningOut] = useState(false);
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -180,33 +133,51 @@ export default function AccountScreen() {
   }
 
   const { session, details } = state;
+  // `t()` with no interpolation returns a string even when the key resolves to an object path
+  // mistake would show the key itself — titles/descriptions below are all leaf string keys.
   const groups: AccountCard[][] = [
     [
-      { key: 'shop', ...COPY.cards.shop, href: '/shop', icon: sym('bag', 'shopping_bag') },
+      {
+        key: 'shop',
+        title: t('account.cards.shop.title'),
+        description: t('account.cards.shop.description'),
+        href: '/shop',
+        icon: sym('bag', 'shopping_bag'),
+      },
       {
         key: 'orders',
-        ...COPY.cards.orders,
+        title: t('account.cards.orders.title'),
+        description: t('account.cards.orders.description'),
         href: '/my/orders',
         icon: sym('shippingbox', 'package_2'),
       },
       {
         key: 'returns',
-        ...COPY.cards.returns,
+        title: t('account.cards.returns.title'),
         href: '/my/returns',
         icon: sym('arrow.uturn.backward', 'assignment_return'),
       },
       {
         key: 'documents',
-        ...COPY.cards.documents,
+        title: t('account.cards.documents.title'),
+        description: t('account.cards.documents.description'),
         href: '/my/documents',
         icon: sym('doc.text', 'description'),
+      },
+      // Address Book (app-only, client request 2026-10-02, tracker #22) — no live-site card.
+      {
+        key: 'addresses',
+        title: t('account.cards.addresses.title'),
+        href: '/my/addresses',
+        icon: sym('mappin.and.ellipse', 'location_on'),
       },
     ],
     [
       // MISSING: gift-card count (live "0 Cards") — no JSON source confirmed yet.
       {
         key: 'giftCards',
-        ...COPY.cards.giftCards,
+        title: t('account.cards.giftCards.title'),
+        description: t('account.cards.giftCards.description'),
         href: '/my/gift-cards',
         icon: sym('giftcard', 'redeem'),
         badge: null,
@@ -214,24 +185,51 @@ export default function AccountScreen() {
       // MISSING: eWallet balance (live "₪0.00") — no JSON source confirmed yet.
       {
         key: 'wallet',
-        ...COPY.cards.wallet,
+        title: t('account.cards.wallet.title'),
+        description: t('account.cards.wallet.description'),
         href: '/my/wallet',
         icon: sym('wallet.pass', 'account_balance_wallet'),
         badge: null,
       },
     ],
-    [{ key: 'security', ...COPY.cards.security, href: '/my/security', icon: sym('lock', 'lock') }],
     [
-      { key: 'contact', ...COPY.cards.contact, href: '/contactus', icon: sym('envelope', 'mail') },
+      {
+        key: 'security',
+        title: t('account.cards.security.title'),
+        description: t('account.cards.security.description'),
+        href: '/my/security',
+        icon: sym('lock', 'lock'),
+      },
+    ],
+    [
+      {
+        key: 'language',
+        title: t('account.cards.language.title'),
+        description: t('account.cards.language.description'),
+        // Not a real route — opened via the row's own onPress override below.
+        href: '/my/security',
+        icon: sym('globe', 'language'),
+        badge: t(`languagePicker.names.${i18n.language}`),
+      },
+    ],
+    [
+      {
+        key: 'contact',
+        title: t('account.cards.contact.title'),
+        description: t('account.cards.contact.description'),
+        href: '/contactus',
+        icon: sym('envelope', 'mail'),
+      },
       {
         key: 'helpdesk',
-        ...COPY.cards.helpdesk,
+        title: t('account.cards.helpdesk.title'),
         href: '/helpdesk',
         icon: sym('lifepreserver', 'support'),
       },
       {
         key: 'tickets',
-        ...COPY.cards.tickets,
+        title: t('account.cards.tickets.title'),
+        description: t('account.cards.tickets.description'),
         href: '/my/tickets',
         icon: sym('ticket', 'confirmation_number'),
       },
@@ -239,13 +237,13 @@ export default function AccountScreen() {
     [
       {
         key: 'quotations',
-        ...COPY.cards.quotations,
+        title: t('account.cards.quotations.title'),
         href: '/my/quotes',
         icon: sym('doc.plaintext', 'request_quote'),
       },
       {
         key: 'invoices',
-        ...COPY.cards.invoices,
+        title: t('account.cards.invoices.title'),
         href: '/my/invoices',
         icon: sym('list.bullet.rectangle', 'receipt_long'),
       },
@@ -267,24 +265,31 @@ export default function AccountScreen() {
 
         <ProfileRow
           icon="address"
-          label={COPY.address}
+          label={t('account.address')}
           value={details && details.addressLines.join('\n')}
-          emptyText={COPY.addAddress}
+          emptyText={t('account.addAddress')}
+          missingLabel={t('account.missing')}
         />
         <ProfileRow
           icon="phone"
-          label={COPY.phone}
+          label={t('account.phone')}
           value={details && (details.phone ?? '')}
-          emptyText={COPY.addPhone}
+          emptyText={t('account.addPhone')}
+          missingLabel={t('account.missing')}
         />
-        <ProfileRow icon="email" label={COPY.email} value={email} />
+        <ProfileRow
+          icon="email"
+          label={t('account.email')}
+          value={email}
+          missingLabel={t('account.missing')}
+        />
 
         <Pressable
           onPress={() => router.push('/my/edit-information')}
           hitSlop={8}
           accessibilityRole="link"
           style={styles.editLink}>
-          <Text style={styles.editLinkText}>{COPY.editInformation}</Text>
+          <Text style={styles.editLinkText}>{t('account.editInformation')}</Text>
         </Pressable>
       </View>
       {groups.map((group) => (
@@ -292,7 +297,9 @@ export default function AccountScreen() {
           {group.map((card, index) => (
             <Pressable
               key={card.key}
-              onPress={() => router.push(card.href)}
+              onPress={() =>
+                card.key === 'language' ? setLanguagePickerVisible(true) : router.push(card.href)
+              }
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               accessibilityRole="button"
               accessibilityLabel={
@@ -313,13 +320,13 @@ export default function AccountScreen() {
               </View>
               {card.badge !== undefined &&
                 (card.badge === null ? (
-                  <MissingValue />
+                  <MissingValue label={t('account.missing')} />
                 ) : (
                   <Text style={styles.badge}>{card.badge}</Text>
                 ))}
-              {/* "forward" flips to point left in Arabic/Hebrew. */}
+              {/* iOS auto-flips "forward"; android/web name is swapped by hand for RTL. */}
               <SymbolView
-                name={{ ios: 'chevron.forward', android: 'chevron_right', web: 'chevron_right' }}
+                name={chevronForwardIcon()}
                 size={13}
                 weight="semibold"
                 tintColor={Colors.placeholderIcon}
@@ -343,11 +350,27 @@ export default function AccountScreen() {
             style={styles.rowIcon}
           />
           <View style={styles.rowText}>
-            <Text style={styles.cardTitle}>{COPY.signOut}</Text>
+            <Text style={styles.cardTitle}>{t('account.signOut')}</Text>
           </View>
           {signingOut && <ActivityIndicator color={Colors.primaryOrange} />}
         </Pressable>
       </View>
+
+      <PickerModal
+        visible={languagePickerVisible}
+        title={t('languagePicker.title')}
+        selectedKey={i18n.language}
+        items={SUPPORTED_LANGUAGES.map((code) => ({
+          key: code,
+          label: t(`languagePicker.names.${code}`),
+        }))}
+        onSelect={(key) => {
+          // setAppLanguage persists the choice and reloads the app if the RTL/LTR
+          // direction changed (see src/i18n/direction.ts).
+          setAppLanguage(key as (typeof SUPPORTED_LANGUAGES)[number]);
+        }}
+        onClose={() => setLanguagePickerVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -357,24 +380,28 @@ function sym(ios: string, android: string): SymbolViewProps['name'] {
 }
 
 /** A value the backend doesn't provide (yet) — shown as such, never as a made-up value. */
-function MissingValue() {
-  return <ComingSoonBadge label={COPY.missing} style={styles.missing} />;
+function MissingValue({ label }: { label: string }) {
+  return <ComingSoonBadge label={label} style={styles.missing} />;
 }
 
 /**
  * `value`: the text; '' = the customer has none saved (shows `emptyText` as a grey italic
  * empty-field placeholder — display only, tapping does nothing); null = unknown (couldn't be read).
+ * `missingLabel`: the translated "Not available yet" text — passed in rather than looked up here,
+ * since this isn't a hook-using component.
  */
 function ProfileRow({
   icon,
   label,
   value,
   emptyText,
+  missingLabel,
 }: {
   icon: 'address' | 'phone' | 'email';
   label: string;
   value: string | null;
   emptyText?: string;
+  missingLabel: string;
 }) {
   const empty = value === '' && emptyText !== undefined;
   return (
@@ -382,7 +409,7 @@ function ProfileRow({
       // Icon at the top of a multi-line address, as on the live page.
       style={[styles.profileRow, !empty && styles.profileRowTop]}
       accessible
-      accessibilityLabel={`${label}: ${empty ? emptyText : value || COPY.missing}`}>
+      accessibilityLabel={`${label}: ${empty ? emptyText : value || missingLabel}`}>
       <SymbolView
         name={
           icon === 'address'
@@ -404,7 +431,7 @@ function ProfileRow({
       ) : value ? (
         <Text style={styles.profileValue}>{value}</Text>
       ) : (
-        <MissingValue />
+        <MissingValue label={missingLabel} />
       )}
     </View>
   );
