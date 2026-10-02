@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
-import { deleteAddress, fetchAddresses, type Address } from '@/api/addresses';
+import { deleteAddress, fetchAddresses, setDefaultAddress, type Address } from '@/api/addresses';
 import { FormMessage } from '@/components/form-message';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
@@ -27,6 +27,7 @@ export default function AddressBookScreen() {
   const { t } = useTranslation();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [settingDefaultId, setSettingDefaultId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const requestId = useRef(0);
 
@@ -68,6 +69,21 @@ export default function AddressBookScreen() {
     await load();
   }
 
+  async function handleSetDefault(address: Address) {
+    if (address.isDefault || settingDefaultId !== null) {
+      return;
+    }
+    setActionError(null);
+    setSettingDefaultId(address.id);
+    const result = await setDefaultAddress(address.id);
+    setSettingDefaultId(null);
+    if (!result.ok) {
+      setActionError(result.message);
+      return;
+    }
+    await load();
+  }
+
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ title: t('addressBook.title') }} />
@@ -93,8 +109,8 @@ export default function AddressBookScreen() {
                   <Text style={styles.cardName} numberOfLines={1}>
                     {address.name}
                   </Text>
-                  {address.isPrimary && (
-                    <Text style={styles.primaryBadge}>{t('addressBook.primary')}</Text>
+                  {address.isDefault && (
+                    <Text style={styles.primaryBadge}>{t('addressBook.default')}</Text>
                   )}
                 </View>
                 <Text style={styles.cardLine}>{address.street}</Text>
@@ -105,6 +121,28 @@ export default function AddressBookScreen() {
                 {address.phone ? <Text style={styles.cardLine}>{address.phone}</Text> : null}
 
                 <View style={styles.cardActions}>
+                  {!address.isDefault && (
+                    <Pressable
+                      onPress={() => handleSetDefault(address)}
+                      disabled={settingDefaultId !== null}
+                      style={styles.actionButton}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: settingDefaultId !== null,
+                        busy: settingDefaultId === address.id,
+                      }}>
+                      {settingDefaultId === address.id ? (
+                        <ActivityIndicator size="small" color={Colors.primaryOrange} />
+                      ) : (
+                        <SymbolView
+                          name={{ ios: 'star', android: 'star-outline', web: 'star' }}
+                          size={15}
+                          tintColor={Colors.primaryOrange}
+                        />
+                      )}
+                      <Text style={styles.actionText}>{t('addressBook.setDefault')}</Text>
+                    </Pressable>
+                  )}
                   <Pressable
                     onPress={() => router.push(`/my/addresses/${address.id}`)}
                     style={styles.actionButton}

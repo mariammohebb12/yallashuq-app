@@ -7,6 +7,10 @@ import { odooJsonRpc, odooRequest } from './odoo-client';
  * Backend (yallashuq_seller/controllers/address_book.py, added 2026-10-02, tracker #22):
  *   - POST /my/addresses/json            (type='json')  -> list
  *   - POST /my/address/edit/json         (type='json')  -> create (address_id omitted/0) or edit
+ *   - POST /my/address/set_default/json  (type='json')  -> mark one address as the default
+ *     (added 2026-10-02, "mark an address as default" fix: a real `is_default_shipping_address`
+ *     field now exists on the address record, not just the old `is_primary`, which only ever
+ *     meant "this is the account's own main contact record", never a real customer choice)
  *   - POST /my/address/delete            (type='http', form POST) -> delete (archives, not a hard
  *     delete); answers with an HTTP redirect, no JSON body, so success is read off the response
  *     rather than parsed as JSON.
@@ -15,6 +19,7 @@ import { odooJsonRpc, odooRequest } from './odoo-client';
 export type Address = {
   id: number;
   isPrimary: boolean;
+  isDefault: boolean;
   name: string;
   street: string;
   street2: string;
@@ -31,6 +36,7 @@ export type Address = {
 type AddressJson = {
   id: number;
   is_primary: boolean;
+  is_default: boolean;
   name: string;
   street: string;
   street2: string;
@@ -48,6 +54,7 @@ function mapAddress(a: AddressJson): Address {
   return {
     id: a.id,
     isPrimary: a.is_primary,
+    isDefault: a.is_default,
     name: a.name || '',
     street: a.street || '',
     street2: a.street2 || '',
@@ -109,6 +116,25 @@ export async function saveAddress(
     const result = await odooJsonRpc<SaveAddressJsonResponse>('/my/address/edit/json', {
       address_id: addressId || 0,
       ...fields,
+    });
+    if (result.status !== 'success') {
+      return { ok: false, message: result.message || NETWORK_ERROR_MESSAGE };
+    }
+    return { ok: true, address: mapAddress(result.address) };
+  } catch {
+    return { ok: false, message: NETWORK_ERROR_MESSAGE };
+  }
+}
+
+export type SetDefaultAddressResult =
+  | { ok: true; address: Address }
+  | { ok: false; message: string };
+
+/** Added 2026-10-02: marks this address as the customer's default (clears it on every other one). */
+export async function setDefaultAddress(addressId: number): Promise<SetDefaultAddressResult> {
+  try {
+    const result = await odooJsonRpc<SaveAddressJsonResponse>('/my/address/set_default/json', {
+      address_id: addressId,
     });
     if (result.status !== 'success') {
       return { ok: false, message: result.message || NETWORK_ERROR_MESSAGE };
