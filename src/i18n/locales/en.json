@@ -78,6 +78,7 @@
     "timeout": "MishMesh didn't answer in time. Please try again.",
     "signInForSupport": "Please sign in to contact support.",
     "sessionEnded": "This support session has ended.",
+    "outsideHoursNotice": "Our live chat team is available 9am–6pm your local time. Outside those hours, we'll follow up on your ticket by email or WhatsApp.",
     "supportAgent": "Support",
     "supportPlaceholder": "Write a message to support",
     "waitingPlaceholder": "You can write once an agent joins"

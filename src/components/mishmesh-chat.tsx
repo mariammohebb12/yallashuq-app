@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   I18nManager,
   Keyboard,
@@ -28,6 +29,7 @@ import {
 import { fetchSession } from '@/api/session';
 import type { SmartSearchResult } from '@/api/smart-search';
 import { MishMeshButton } from '@/components/mishmesh-button';
+import { chevronForwardIcon } from '@/theme/directional-icon';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
@@ -59,32 +61,10 @@ import { Colors } from '@/theme/theme';
  * session found."). Human-mode styling is app-only (the website's wasn't copied).
  */
 
-// Copy confirmed from the live site.
-const COPY = {
-  /** Live: the user bubble shown after picking a file (`[Attached File: ${file.name}]`). */
-  attachedFile: (name: string) => `[Attached File: ${name}]`,
-  eyebrow: 'MISHMESH SHOPPING ASSISTANT',
-  title: 'Tell me what you want to buy',
-  introBold: 'I can help you find products fast.',
-  introText: 'Try something like “I want chairs for my dining room”, “show warranty products”.',
-  placeholder: 'Ask for any product, style, need',
-  loading: '...',
-  // Live: what the website's chat script sends as the query for an attachment.
-  attachmentQuery: '[File Attachment]',
-  // Same as Smart Search (confirmed from the live search card).
-  uponRequest: 'Upon Request',
-  // From the client's request (2026-09-28).
-  waitingForAgent: 'Waiting for an agent',
-  connectedToSupport: 'Connected to support',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  noSession: "You don't have an open support session yet.",
-  timeout: "MishMesh didn't answer in time. Please try again.",
-  signInForSupport: 'Please sign in to contact support.',
-  sessionEnded: 'This support session has ended.',
-  supportAgent: 'Support',
-  supportPlaceholder: 'Write a message to support',
-  waitingPlaceholder: 'You can write once an agent joins',
-};
+// Copy moved into src/i18n/locales/en.json under "mishmesh" (RTL/i18n follow-up, 2026-10-01 —
+// this component was missed in the original extraction pass since it's a shared component, not
+// a screen). Looked up via useTranslation()/t(); see that file for the same strings with their
+// original sourcing notes (confirmed-from-live-site vs. placeholder).
 
 // The backend only reads the last 5 turns; a few more are sent in case that changes.
 const HISTORY_TURNS = 10;
@@ -107,6 +87,24 @@ const HANDOFF_PATTERNS = [
 
 export function isHandoffRequest(text: string): boolean {
   return HANDOFF_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/*
+ * Live-chat hours (client decision, 2026-10-02, confirmed with Basem): support connects to a
+ * real person live between 9am-6pm, and switches to ticket-only outside those hours — and the
+ * hours follow EACH CUSTOMER'S OWN local time, not one fixed timezone. Odoo's own Live Chat
+ * "working hours" setting can't do this (it's one timezone for everyone), so this is done here
+ * instead, using the phone's own clock as the customer's local time. The backend always creates
+ * a ticket (+ a livechat channel) on a handoff request regardless of the hour — what changes is
+ * only whether the app switches to "human mode" (live, polling, waiting-for-agent) or just shows
+ * the ticket confirmation and stops there.
+ */
+const SUPPORT_START_HOUR = 9;
+const SUPPORT_END_HOUR = 18;
+
+function isWithinSupportHours(): boolean {
+  const hour = new Date().getHours();
+  return hour >= SUPPORT_START_HOUR && hour < SUPPORT_END_HOUR;
 }
 
 // Colors from the live chat CSS (only used by this widget).
@@ -140,6 +138,7 @@ type Message = {
 
 /** Launcher + popup. Tapping the launcher toggles the popup, like the live site. */
 export function MishMeshAssistant() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -168,8 +167,8 @@ export function MishMeshAssistant() {
   const endSupport = useCallback(() => {
     setSupport(null);
     lastSupportMessageId.current = 0;
-    setMessages((m) => [...m, notice(COPY.sessionEnded)]);
-  }, []);
+    setMessages((m) => [...m, notice(t('mishmesh.sessionEnded'))]);
+  }, [t]);
 
   /** Refreshes the session (accepted? ended?) and appends new messages. */
   const pollSupport = useCallback(
@@ -223,9 +222,11 @@ export function MishMeshAssistant() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const label = COPY.attachedFile(asset.fileName ?? asset.uri.split('/').pop() ?? '');
+      const label = t('mishmesh.attachedFile', {
+        name: asset.fileName ?? asset.uri.split('/').pop() ?? '',
+      });
       // Like the live site: the bubble/history show the file name, the query is a fixed text.
-      sendToAssistant(label, COPY.attachmentQuery);
+      sendToAssistant(label, t('mishmesh.attachmentQuery'));
     }
   }
 
@@ -265,7 +266,9 @@ export function MishMeshAssistant() {
     } else {
       const who = await fetchSession();
       if (!mounted.current) return;
-      addMessages(notice(who.ok && !who.session ? COPY.signInForSupport : COPY.noSession));
+      addMessages(
+        notice(who.ok && !who.session ? t('mishmesh.signInForSupport') : t('mishmesh.noSession')),
+      );
     }
   }
 
@@ -281,7 +284,7 @@ export function MishMeshAssistant() {
     setProcessing(true);
     addMessages(
       { id: `user_${now}`, type: 'user', text, turn: { role: 'user', content: text } },
-      { id: `loading_${now}`, type: 'engine', text: COPY.loading },
+      { id: `loading_${now}`, type: 'engine', text: t('mishmesh.loading') },
     );
     const result = await sendChatMessage(query, history);
     if (!mounted.current || request !== chatRequestId.current) return;
@@ -295,12 +298,18 @@ export function MishMeshAssistant() {
         turn: result.text ? { role: 'assistant', content: result.text } : undefined,
       };
     } else {
-      reply = notice(result.timedOut ? COPY.timeout : result.message);
+      reply = notice(result.timedOut ? t('mishmesh.timeout') : result.message);
     }
     setMessages((m) => [...m.filter((msg) => msg.id !== `loading_${now}`), reply]);
     if (result.ok && isHandoffRequest(text)) {
-      await checkHandoff();
-      if (!mounted.current) return;
+      if (isWithinSupportHours()) {
+        await checkHandoff();
+        if (!mounted.current) return;
+      } else {
+        // Outside support hours: the ticket is already created (the reply above says so); don't
+        // switch to live "waiting for an agent" mode when no one's actually online to accept it.
+        addMessages(notice(t('mishmesh.outsideHoursNotice')));
+      }
     }
     setProcessing(false);
   }
@@ -336,6 +345,7 @@ function ChatWindow({
   onAttach: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboardVisible = useKeyboardVisible();
@@ -365,8 +375,8 @@ function ChatWindow({
           { maxHeight: Math.min(windowHeight * 0.75, 600), marginBottom: keyboardVisible ? 12 : 0 },
         ]}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>{COPY.eyebrow}</Text>
-          <Text style={styles.title}>{COPY.title}</Text>
+          <Text style={styles.eyebrow}>{t('mishmesh.eyebrow')}</Text>
+          <Text style={styles.title}>{t('mishmesh.title')}</Text>
         </View>
         {support && <SupportStatus session={support} />}
 
@@ -377,8 +387,8 @@ function ChatWindow({
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
           <EngineMessage>
-            <Text style={[styles.engineText, styles.bold]}>{COPY.introBold}</Text>
-            <Text style={[styles.engineText, styles.introParagraph]}>{COPY.introText}</Text>
+            <Text style={[styles.engineText, styles.bold]}>{t('mishmesh.introBold')}</Text>
+            <Text style={[styles.engineText, styles.introParagraph]}>{t('mishmesh.introText')}</Text>
           </EngineMessage>
           {messages.map((m) =>
             m.type === 'engine' ? (
@@ -394,7 +404,7 @@ function ChatWindow({
               </EngineMessage>
             ) : m.type === 'agent' ? (
               <EngineMessage key={m.id} agent>
-                <Text style={[styles.engineText, styles.bold]}>{m.author || COPY.supportAgent}</Text>
+                <Text style={[styles.engineText, styles.bold]}>{m.author || t('mishmesh.supportAgent')}</Text>
                 <Text style={styles.engineText}>{m.text}</Text>
               </EngineMessage>
             ) : (
@@ -432,10 +442,10 @@ function ChatWindow({
               editable={canWrite}
               placeholder={
                 !support
-                  ? COPY.placeholder
+                  ? t('mishmesh.placeholder')
                   : support.isAccepted
-                    ? COPY.supportPlaceholder
-                    : COPY.waitingPlaceholder
+                    ? t('mishmesh.supportPlaceholder')
+                    : t('mishmesh.waitingPlaceholder')
               }
               autoComplete="off"
               returnKeyType="send"
@@ -481,8 +491,9 @@ function ChatWindow({
 
 /** Human mode's status strip, under the header. */
 function SupportStatus({ session }: { session: SupportSession }) {
+  const { t } = useTranslation();
   const connected = session.isAccepted;
-  const label = connected ? COPY.connectedToSupport : COPY.waitingForAgent;
+  const label = connected ? t('mishmesh.connectedToSupport') : t('mishmesh.waitingForAgent');
   return (
     <View
       style={[styles.supportStatus, connected ? styles.supportConnected : styles.supportWaiting]}
@@ -505,11 +516,12 @@ function SupportStatus({ session }: { session: SupportSession }) {
 
 /** One product result (Smart Search's data): opens Product detail and closes the popup. */
 function ResultRow({ product, onOpen }: { product: SmartSearchResult; onOpen: () => void }) {
+  const { t } = useTranslation();
   function open() {
     onOpen();
     router.push({ pathname: '/product/[id]', params: { id: String(product.id) } });
   }
-  const price = product.priceLabel ?? COPY.uponRequest;
+  const price = product.priceLabel ?? t('mishmesh.uponRequest');
   return (
     <Pressable
       onPress={open}
@@ -543,12 +555,8 @@ function ResultRow({ product, onOpen }: { product: SmartSearchResult; onOpen: ()
         ) : null}
         <Text style={styles.resultPrice}>{price}</Text>
       </View>
-      {/* "forward" flips to point left in Arabic/Hebrew. */}
-      <SymbolView
-        name={{ ios: 'chevron.forward', android: 'chevron_right', web: 'chevron_right' }}
-        size={12}
-        tintColor={Colors.placeholderIcon}
-      />
+      {/* iOS auto-flips "forward"; android/web name is swapped by hand for RTL. */}
+      <SymbolView name={chevronForwardIcon()} size={12} tintColor={Colors.placeholderIcon} />
     </Pressable>
   );
 }
@@ -626,7 +634,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.8,
     color: C.eyebrow,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   title: {
     fontFamily: Fonts.primaryBold,
@@ -636,7 +644,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 23,
     color: Colors.dark,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   close: {
     position: 'absolute',
@@ -725,7 +733,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     fontSize: 13,
     color: C.closeIcon,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   statusLabelConnected: {
     color: Colors.successText,
@@ -734,7 +742,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 11,
     color: Colors.mutedText,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   disabled: {
     opacity: 0.5,
@@ -763,7 +771,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19.5,
     color: C.engineText,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   bold: {
     fontFamily: Fonts.primaryBold,
@@ -842,7 +850,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primary,
     fontSize: 14,
     color: Colors.white,
-    textAlign: 'left',
+    textAlign: 'auto', // RTL-aware: aligns with the text's own writing direction.
   },
   footer: {
     flexDirection: 'row',
