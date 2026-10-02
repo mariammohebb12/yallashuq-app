@@ -1,19 +1,57 @@
 {
   "account": {
     "cards": {
-      "shop": { "title": "המשך בקנייה", "description": "עיינו בקטגוריות וגלו מוצרים" },
-      "orders": { "title": "ההזמנות שלי", "description": "בדקו היסטוריית הזמנות ועדכוני מעקב" },
-      "documents": { "title": "מסמכי השוק", "description": "צפו באישורי ההזמנות והקבלות שלכם" },
-      "giftCards": { "title": "כרטיסי המתנה שלי", "description": "צפו בכרטיסי המתנה והשוברים הזמינים לכם" },
-      "wallet": { "title": "ארנק דיגיטלי", "description": "נהלו את היתרה שלכם וצפו בהיסטוריית העסקאות" },
-      "security": { "title": "חיבור ואבטחה", "description": "הגדירו את פרמטרי החיבור שלכם" },
-      "contact": { "title": "צור קשר", "description": "שתפו אותנו בפנייתכם וצוותנו יחזור אליכם במהירות." },
-      "helpdesk": { "title": "שליחת פנייה" },
-      "tickets": { "title": "פניות", "description": "עקבו אחר כל פניות התמיכה שלכם" },
-      "quotations": { "title": "הצעות מחיר לבדיקה" },
-      "invoices": { "title": "חשבוניות וחיובים" },
-      "returns": { "title": "ההחזרות שלי" },
-      "language": { "title": "שפה", "description": "שינוי שפת האפליקציה" }
+      "shop": {
+        "title": "המשך בקנייה",
+        "description": "עיינו בקטגוריות וגלו מוצרים"
+      },
+      "orders": {
+        "title": "ההזמנות שלי",
+        "description": "בדקו היסטוריית הזמנות ועדכוני מעקב"
+      },
+      "documents": {
+        "title": "מסמכי השוק",
+        "description": "צפו באישורי ההזמנות והקבלות שלכם"
+      },
+      "giftCards": {
+        "title": "כרטיסי המתנה שלי",
+        "description": "צפו בכרטיסי המתנה והשוברים הזמינים לכם"
+      },
+      "wallet": {
+        "title": "ארנק דיגיטלי",
+        "description": "נהלו את היתרה שלכם וצפו בהיסטוריית העסקאות"
+      },
+      "security": {
+        "title": "חיבור ואבטחה",
+        "description": "הגדירו את פרמטרי החיבור שלכם"
+      },
+      "contact": {
+        "title": "צור קשר",
+        "description": "שתפו אותנו בפנייתכם וצוותנו יחזור אליכם במהירות."
+      },
+      "helpdesk": {
+        "title": "שליחת פנייה"
+      },
+      "tickets": {
+        "title": "פניות",
+        "description": "עקבו אחר כל פניות התמיכה שלכם"
+      },
+      "quotations": {
+        "title": "הצעות מחיר לבדיקה"
+      },
+      "invoices": {
+        "title": "חשבוניות וחיובים"
+      },
+      "returns": {
+        "title": "ההחזרות שלי"
+      },
+      "language": {
+        "title": "שפה",
+        "description": "שינוי שפת האפליקציה"
+      },
+      "addresses": {
+        "title": "פנקס כתובות"
+      }
     },
     "editInformation": "עריכת פרטים",
     "signOut": "התנתקות",
@@ -604,9 +642,18 @@
     "heroText": "גלו אלפי מוצרים ממוכרים אמינים. משלוח חוצה גבולות, המלצות חכמות וערך שאין שני לו.",
     "searchPlaceholder": "מה אתם מחפשים?",
     "services": {
-      "freeShipping": { "title": "משלוח חינם", "subtitle": "על מוצרים נבחרים" },
-      "vipWarranty": { "title": "אחריות VIP", "subtitle": "הגנה מובטחת ב-100%" },
-      "giftCards": { "title": "כרטיסי מתנה", "subtitle": "תנו את המתנה המושלמת" }
+      "freeShipping": {
+        "title": "משלוח חינם",
+        "subtitle": "על מוצרים נבחרים"
+      },
+      "vipWarranty": {
+        "title": "אחריות VIP",
+        "subtitle": "הגנה מובטחת ב-100%"
+      },
+      "giftCards": {
+        "title": "כרטיסי מתנה",
+        "subtitle": "תנו את המתנה המושלמת"
+      }
     },
     "shopByCategory": "קנו לפי קטגוריה",
     "viewAll": "הצג הכול",
@@ -722,6 +769,9 @@
     "payNow": "שלמו עכשיו",
     "title": "לתשלום",
     "sampleBanner": "נתוני דוגמה — לא הכתובות האמיתיות שלכם. לא מתבצע חיוב.",
-    "empty": "העגלה שלכם ריקה!"
+    "empty": "העגלה שלכם ריקה!",
+    "securePaymentTitle": "תשלום מאובטח",
+    "securePaymentNotice": "תזין את פרטי הכרטיס שלך בצורה מאובטחת בעמוד של ספק התשלום.",
+    "cancelPayment": "ביטול תשלום"
   }
 }
