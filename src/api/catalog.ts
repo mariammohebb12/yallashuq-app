@@ -139,6 +139,50 @@ type ShopProductsResponse = CatalogResponse & {
   filters?: { seller?: number };
 };
 
+export type ShopSeller = { id: number; name: string };
+
+export type SellersResult =
+  | { ok: true; sellers: ShopSeller[]; available: boolean }
+  | { ok: false; message: string };
+
+type ShopSellersResponse = {
+  status: 'success' | (string & {});
+  message?: string;
+  sellers: { id: number; name: string }[];
+};
+
+/**
+ * Sellers to populate Shop's "All Sellers" dropdown: GET (JSON-RPC) /shop/sellers/json
+ * (yallashuq_seller/controllers/main.py, added 2026-10-02, missing-features-punchlist.md Tier 2
+ * remnant). Only approved sellers with at least one product currently matching /shop/products
+ * .json's own domain are listed, so every entry here is guaranteed to return real products when
+ * passed as `seller` to fetchShopProducts.
+ *
+ * `available: false` (route not deployed on this server, same 404-as-SyntaxError pattern as
+ * fetchShopProducts) means the dropdown should show "Coming soon" rather than an empty list.
+ */
+export async function fetchSellers(): Promise<SellersResult> {
+  let data: ShopSellersResponse;
+  try {
+    data = await odooJsonRpc<ShopSellersResponse>('/shop/sellers/json', {});
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      if (__DEV__) {
+        console.log('[shop] /shop/sellers/json not deployed on this server — "All Sellers" stays Coming soon');
+      }
+      return { ok: true, sellers: [], available: false };
+    }
+    return {
+      ok: false,
+      message: error instanceof Error && error.message ? error.message : NETWORK_ERROR_MESSAGE,
+    };
+  }
+  if (data?.status !== 'success' || !Array.isArray(data.sellers)) {
+    return { ok: false, message: data?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  }
+  return { ok: true, sellers: data.sellers, available: true };
+}
+
 export async function fetchShopProducts({
   page = 1,
   category = 0,
