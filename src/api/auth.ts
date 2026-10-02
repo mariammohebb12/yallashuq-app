@@ -8,85 +8,56 @@ import { unregisterPushToken } from './push-notifications';
 
 /*
  * ============================================================================================
- * TEMPORARY / WORKAROUND FOR MISSING JSON LOGIN ENDPOINT
+ * FIXED 2026-10-02 (bug: "/web/login sends back a whole webpage instead of a simple yes/no
+ * answer, so the app has to 'read' the page text to guess if login worked — fragile, could
+ * break silently").
  * ============================================================================================
- * The backend has no JSON login API. The only login route is Odoo's HTML form route
- * `/web/login` (overridden by yallashuq_seller/controllers/sign_up_controller.py), built for
- * browsers:
- *   - it needs a `csrf_token` (plus other hidden fields, e.g. `login_otp_required`,
- *     `unverified_login`) that only exist inside the HTML of the login page, so we GET the page
- *     and scrape every hidden input out of the form, passing them back unchanged;
- *   - on success it answers with an HTTP redirect (no data), so we treat a redirect as success;
- *   - on failure (wrong credentials, unverified account + OTP resent, ...) it re-renders the whole
- *     login page with the message inside an alert element, so we scrape that message out of the
- *     HTML.
- * This breaks as soon as the web login template changes. Replace this file's internals with a
- * call to a proper JSON endpoint (returning { success, error, redirect }) once the backend adds
- * one — see CLAUDE.md, "Known Blockers". The scraping helpers live in html-form.ts.
+ * Used to scrape Odoo's HTML login form (CSRF token, hidden fields, alert text) because there
+ * was no JSON login route. The backend now has one: POST /mobile/login { login, password } →
+ * { status: 'success' } | { status: 'otp_required', login, message } | { status: 'error',
+ * message } — real answers, not HTML to parse. It runs the exact same login logic the web form
+ * does (phone lookup, the unverified-account OTP branch, Odoo's own session.authenticate), just
+ * returns the result as data instead of a re-rendered page.
+ * The HTML-scraping helpers (html-form.ts) are no longer used by this function, kept for
+ * whatever still needs them (signup is a separate, still-HTML-only flow — not touched here).
  * ============================================================================================
  */
 
 export type LoginResult =
-  | { kind: 'success'; redirect: string }
+  | { kind: 'success' }
   /** Backend error message (shown in the red alert). */
   | { kind: 'error'; message: string }
   /** Backend info message, e.g. account not verified and OTP resent (shown in the info alert). */
   | { kind: 'info'; message: string }
   /**
-   * The account isn't verified: the page came back with `login_otp_required=True` and
-   * `unverified_login` set — the live site's trigger for its login OTP modal (see below).
+   * The account isn't verified: the backend sent a login OTP and expects the app's OTP step.
    */
   | { kind: 'otp'; login: string; message?: string };
 
-const LOGIN_FORM_CLASS = 'oe_login_form';
+type MobileLoginResponse = {
+  status: 'success' | 'otp_required' | 'error' | (string & {});
+  login?: string;
+  message?: string;
+};
 
 export async function loginWithPassword(login: string, password: string): Promise<LoginResult> {
   try {
-    // 1) Load the login page: gets (or reuses, from the cookie jar) the session cookie — which
-    //    also carries any guest cart — and the form's hidden fields, including the CSRF token
-    //    bound to that session.
-    const page = await odooRequest('/web/login', { followRedirects: true });
-    const form = extractForm(await page.text(), LOGIN_FORM_CLASS);
-    const hiddenFields = form ? extractHiddenFields(form) : undefined;
-    if (!hiddenFields?.csrf_token) {
-      return { kind: 'error', message: UNEXPECTED_RESPONSE_MESSAGE };
-    }
-
-    // 2) Submit the form exactly as the web page does: every hidden field passed through as-is
-    //    (csrf_token, type, redirect, login_otp_required, unverified_login, ...), plus the two
-    //    visible fields. `login` is sent as typed: the backend handles email/phone lookup.
-    const response = await odooRequest('/web/login', {
-      method: 'POST',
-      form: { ...hiddenFields, login, password },
+    const result = await odooJsonRpc<MobileLoginResponse | null>('/mobile/login', {
+      login,
+      password,
     });
-
-    if (response.location) {
-      // A redirect back to the login page is not a successful login.
-      if (new URL(response.location).pathname.startsWith('/web/login')) {
-        return { kind: 'error', message: UNEXPECTED_RESPONSE_MESSAGE };
-      }
-      return { kind: 'success', redirect: response.location };
+    if (result?.status === 'success') {
+      return { kind: 'success' };
     }
-
-    const html = await response.text();
-    const alert = extractAlert(html, LOGIN_FORM_CLASS);
-
-    // Same condition as the live login_otp.js widget: the OTP modal opens only when the page
-    // came back with login_otp_required === "True" and a non-empty unverified_login.
-    const returnedForm = extractForm(html, LOGIN_FORM_CLASS);
-    const returnedFields = returnedForm ? extractHiddenFields(returnedForm) : undefined;
-    if (returnedFields?.login_otp_required === 'True' && returnedFields.unverified_login) {
-      return { kind: 'otp', login: returnedFields.unverified_login, message: alert?.message };
+    if (result?.status === 'otp_required' && result.login) {
+      return { kind: 'otp', login: result.login, message: result.message };
     }
-
-    if (alert) {
-      return alert.level === 'danger'
-        ? { kind: 'error', message: alert.message }
-        : { kind: 'info', message: alert.message };
-    }
-    return { kind: 'error', message: UNEXPECTED_RESPONSE_MESSAGE };
-  } catch {
-    return { kind: 'error', message: NETWORK_ERROR_MESSAGE };
+    return { kind: 'error', message: result?.message || UNEXPECTED_RESPONSE_MESSAGE };
+  } catch (error) {
+    return {
+      kind: 'error',
+      message: error instanceof OdooRpcError ? UNEXPECTED_RESPONSE_MESSAGE : NETWORK_ERROR_MESSAGE,
+    };
   }
 }
 
