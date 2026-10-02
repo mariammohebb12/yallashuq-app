@@ -304,7 +304,16 @@
     "markAllRead": "Mark all as read",
     "sampleData": "Sample data — notifications are not available on this server yet.",
     "loadMore": "Load More",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "preferences": "Notification settings"
+  },
+  "notificationPreferences": {
+    "title": "Notification Settings",
+    "intro": "Choose which notifications you want to receive. Turning one off stops it both in the app and as a push notification.",
+    "orderUpdates": "Order updates (packed, shipped, delivered)",
+    "warrantyUpdates": "Warranty claim updates",
+    "returnUpdates": "Return / refund updates",
+    "promotional": "Promotional offers"
   },
   "orderParts": {
     "return": "Return",
@@ -332,7 +341,11 @@
     "star_one": "{{count}} star",
     "star_other": "{{count}} stars",
     "selectRating": "Please select a star rating.",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "photosLabel": "PHOTOS (OPTIONAL)",
+    "addPhoto": "Add photo",
+    "removePhoto": "Remove photo",
+    "photoPermissionDenied": "Please allow photo library access to add a photo."
   },
   "supportModal": {
     "title": "Need Support",
@@ -739,6 +752,8 @@
     "title": "Address Book",
     "empty": "You haven't saved any addresses yet.",
     "primary": "Primary",
+    "default": "Default",
+    "setDefault": "Set as default",
     "edit": "Edit",
     "delete": "Delete",
     "addNew": "Add Address",
