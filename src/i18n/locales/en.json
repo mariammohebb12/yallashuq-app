@@ -241,6 +241,9 @@
   },
   "invoiceDetail": {
     "download": "Download",
+    "lineItems": "Items",
+    "lineQty_one": "{{count}} item",
+    "lineQty_other": "{{count}} items",
     "communication": "Communication history",
     "sampleData": "Sample data — invoice details are not your real invoice",
     "notFound": "This invoice could not be found.",

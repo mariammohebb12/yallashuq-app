@@ -1,17 +1,17 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   fetchInvoice,
   fetchInvoiceMessages,
+  type InvoiceDetail,
   type InvoiceMessage,
-  type InvoiceSummary,
 } from '@/api/invoices';
 import { FormMessage } from '@/components/form-message';
 import { InvoiceStatusBadge } from '@/components/invoice-status-badge';
-import { SampleDataBanner } from '@/components/order-parts';
 import { Fonts } from '@/theme/fonts';
 import { Colors } from '@/theme/theme';
 
@@ -28,20 +28,12 @@ import { Colors } from '@/theme/theme';
  * The header (number, amount, status) is sample data until #015 ships; the banner says so.
  */
 
-const COPY = {
-  // Confirmed from the live /my/invoices/<id> page.
-  download: 'Download',
-  communication: 'Communication history',
-  // PLACEHOLDER COPY (not confirmed anywhere).
-  sampleData: 'Sample data — invoice details are not your real invoice',
-  notFound: 'This invoice could not be found.',
-  noMessages: 'No messages yet.',
-};
+// Copy moved into src/i18n/locales/en.json under "invoiceDetail" (RTL/i18n work, 2026-10-01).
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; invoice: InvoiceSummary | null; isSampleData: boolean };
+  | { status: 'ready'; invoice: InvoiceDetail | null };
 
 type MessagesState =
   | { status: 'loading' }
@@ -59,6 +51,7 @@ function formatMessageDate(value: string): string {
 }
 
 export default function InvoiceDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [messages, setMessages] = useState<MessagesState>({ status: 'loading' });
@@ -75,11 +68,7 @@ export default function InvoiceDetailScreen() {
     }
     setState(
       invoiceResult.ok
-        ? {
-            status: 'ready',
-            invoice: invoiceResult.invoice,
-            isSampleData: invoiceResult.isSampleData,
-          }
+        ? { status: 'ready', invoice: invoiceResult.invoice }
         : { status: 'error', message: invoiceResult.message }
     );
     setMessages(
@@ -103,11 +92,6 @@ export default function InvoiceDetailScreen() {
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ title: invoice ? invoice.name : '' }} />
-      {state.status === 'ready' && state.isSampleData && (
-        <View style={styles.bannerBar}>
-          <SampleDataBanner message={COPY.sampleData} />
-        </View>
-      )}
       {state.status === 'loading' ? (
         <View style={[styles.page, styles.centered]}>
           <ActivityIndicator color={Colors.primaryOrange} />
@@ -117,7 +101,7 @@ export default function InvoiceDetailScreen() {
           {state.status === 'error' ? (
             <FormMessage type="error" message={state.message} />
           ) : invoice === null ? (
-            <FormMessage type="error" message={COPY.notFound} />
+            <FormMessage type="error" message={t('invoiceDetail.notFound')} />
           ) : (
             <View style={styles.sections}>
               {/* ---- Header: number, amount, status, Download ---- */}
@@ -141,19 +125,38 @@ export default function InvoiceDetailScreen() {
                     size={16}
                     tintColor={Colors.white}
                   />
-                  <Text style={styles.downloadText}>{COPY.download}</Text>
+                  <Text style={styles.downloadText}>{t('invoiceDetail.download')}</Text>
                 </Pressable>
               </View>
 
+              {/* ---- Line items (real, added 2026-10-02 tracker #15) ---- */}
+              {invoice.lines.length > 0 && (
+                <View style={styles.card}>
+                  <Text style={styles.sectionTitle}>{t('invoiceDetail.lineItems')}</Text>
+                  {invoice.lines.map((line) => (
+                    <View key={line.id} style={styles.lineRow}>
+                      <View style={styles.lineNameCol}>
+                        <Text style={styles.lineName}>{line.name}</Text>
+                        <Text style={styles.muted}>
+                          {t('invoiceDetail.lineQty', { count: line.quantity })} ·{' '}
+                          {line.priceUnitFormatted}
+                        </Text>
+                      </View>
+                      <Text style={styles.lineTotal}>{line.priceSubtotalFormatted}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               {/* ---- Communication history (real) ---- */}
               <View style={styles.card}>
-                <Text style={styles.sectionTitle}>{COPY.communication}</Text>
+                <Text style={styles.sectionTitle}>{t('invoiceDetail.communication')}</Text>
                 {messages.status === 'loading' ? (
                   <ActivityIndicator color={Colors.primaryOrange} />
                 ) : messages.status === 'error' ? (
                   <FormMessage type="error" message={messages.message} />
                 ) : messages.messages.length === 0 ? (
-                  <Text style={styles.muted}>{COPY.noMessages}</Text>
+                  <Text style={styles.muted}>{t('invoiceDetail.noMessages')}</Text>
                 ) : (
                   messages.messages.map((message) => (
                     <View key={message.id} style={styles.message}>
@@ -243,6 +246,28 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     fontSize: 16,
     color: Colors.sectionHeading,
+  },
+  lineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.inputBorder,
+  },
+  lineNameCol: {
+    flex: 1,
+    gap: 2,
+  },
+  lineName: {
+    fontFamily: Fonts.primary,
+    fontSize: 14,
+    color: Colors.dark,
+  },
+  lineTotal: {
+    fontFamily: Fonts.primaryBold,
+    fontSize: 14,
+    color: Colors.dark,
   },
   message: {
     gap: 4,

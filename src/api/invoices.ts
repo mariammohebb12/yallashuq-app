@@ -1,6 +1,6 @@
 import { getCookieHeader } from './cookie-jar';
+import { formatDate, formatMoney } from '@/utils/locale-format';
 import { NETWORK_ERROR_MESSAGE } from './messages';
-import { mockInvoice, mockInvoices } from './mocks/invoices.mock';
 import { odooJsonRpc, odooUrl } from './odoo-client';
 
 /*
@@ -9,10 +9,21 @@ import { odooJsonRpc, odooUrl } from './odoo-client';
  * staging offers "Pay" on invoices of orders that are already paid (double-charge risk, see
  * docs/backend-requests/014-invoice-double-charge.md).
  *
- * ⚠️ LIST AND HEADERS ARE TEMPORARY MOCK DATA ⚠️ /my/invoices and /my/invoices/<id> are
- * server-rendered HTML only (JSON call → 400; checked on staging 2026-09-27). Requested in
- * docs/backend-requests/015-invoices-list-json.md. Until it ships, fetchInvoices / fetchInvoice
- * return sample data copied from staging (src/api/mocks/invoices.mock.ts).
+ * FIXED 2026-10-02 (tracker #15): the list/detail route exists for real now
+ * (yallashuq_seller/controllers/invoices.py, `/my/invoices/json` + `/my/invoices/<id>/json`) —
+ * it was already built, the app just hadn't been switched over from mock.invoices.ts to it.
+ * That route doesn't take the live page's Filter By/Sort By params (it's always newest-first,
+ * paginated) — Filter/Sort are applied here, client-side, over the fetched page, the same way
+ * the live page's own options narrow/order its list. "Bills" (vendor bills) is correctly always
+ * empty: the backend route only ever returns customer invoices/credit notes (`out_invoice`/
+ * `out_refund`), matching what staging itself showed ("Bills is empty on staging").
+ *
+ * Odoo's real `payment_state` values (not_paid/in_payment/paid/partial/reversed/
+ * invoicing_legacy) are mapped to the app's 3 status buckets below. Only `not_paid`→"Waiting for
+ * Payment", `in_payment`→"Processing Payment" and `paid`→"Paid" were actually seen on staging;
+ * `partial`/`reversed`/`invoicing_legacy` are mapped by Odoo's own standard meaning (partial →
+ * still owed, so "waiting"; reversed/invoicing_legacy → settled, so "paid") rather than
+ * confirmed against a real example — flagging this assumption rather than presenting it as seen.
  *
  * REAL:
  * - Communication history: POST /mail/thread/messages (the route the live page's chatter uses),
@@ -51,27 +62,147 @@ export type InvoicesResult =
   | { ok: true; invoices: InvoiceSummary[]; isSampleData: boolean }
   | { ok: false; message: string };
 
+export type InvoiceLine = {
+  id: number;
+  name: string;
+  quantity: number;
+  priceUnitFormatted: string;
+  priceSubtotalFormatted: string;
+};
+
+export type InvoiceDetail = InvoiceSummary & { lines: InvoiceLine[] };
+
 export type InvoiceResult =
-  | { ok: true; invoice: InvoiceSummary | null; isSampleData: boolean }
+  | { ok: true; invoice: InvoiceDetail | null; isSampleData: boolean }
   | { ok: false; message: string };
 
-/**
- * TEMPORARY: returns the mock list (isSampleData: true).
- * TODO: replace with the list route from docs/backend-requests/015-invoices-list-json.md.
- */
+type InvoiceJson = {
+  id: number;
+  name: string;
+  move_type: string;
+  invoice_date: string | false;
+  due_date: string | false;
+  amount_total: number;
+  amount_residual: number;
+  currency: string | false;
+  payment_state: string;
+};
+
+type InvoicesJsonResponse =
+  | {
+      status: 'success';
+      page: number;
+      page_count: number;
+      total_count: number;
+      invoices: InvoiceJson[];
+    }
+  | { status: 'error'; message?: string };
+
+type InvoiceDetailJsonResponse =
+  | (InvoiceJson & {
+      status: 'success';
+      partner_name: string;
+      lines: {
+        id: number;
+        name: string;
+        quantity: number;
+        price_unit: number;
+        price_subtotal: number;
+        price_total: number;
+      }[];
+      pdf_url: string;
+    })
+  | { status: 'error'; message?: string };
+
+const STATUS_BY_PAYMENT_STATE: Record<string, InvoiceStatus> = {
+  not_paid: { code: 'waiting_for_payment', label: 'Waiting for Payment' },
+  partial: { code: 'waiting_for_payment', label: 'Waiting for Payment' },
+  in_payment: { code: 'processing_payment', label: 'Processing Payment' },
+  paid: { code: 'paid', label: 'Paid' },
+  reversed: { code: 'paid', label: 'Paid' },
+  invoicing_legacy: { code: 'paid', label: 'Paid' },
+};
+
+function mapInvoice(json: InvoiceJson): InvoiceSummary {
+  return {
+    id: json.id,
+    name: json.name,
+    invoiceDateFormatted: formatDate(json.invoice_date),
+    dueDateFormatted: formatDate(json.due_date),
+    amountDueFormatted: formatMoney(json.amount_residual, json.currency),
+    status: STATUS_BY_PAYMENT_STATE[json.payment_state] ?? STATUS_BY_PAYMENT_STATE.not_paid,
+    amountTotalFormatted: formatMoney(json.amount_total, json.currency),
+  };
+}
+
+function applyFilterAndSort(
+  invoices: InvoiceSummary[],
+  filter: InvoiceFilter,
+  sort: InvoiceSort
+): InvoiceSummary[] {
+  let result = invoices;
+  if (filter === 'bills') {
+    // The backend route only ever returns customer invoices/credit notes — there are never
+    // any vendor bills to show here, same as the live site.
+    result = [];
+  } else if (filter === 'invoices') {
+    result = result.filter((invoice) => !invoice.name.startsWith('R'));
+  } else if (filter === 'overdue_invoices') {
+    result = result.filter(
+      (invoice) => invoice.status.code === 'waiting_for_payment' && invoice.dueDateFormatted
+    );
+  }
+  const sorted = [...result];
+  if (sort === 'name') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sort === 'state') {
+    sorted.sort((a, b) => a.status.code.localeCompare(b.status.code));
+  } else if (sort === 'duedate') {
+    sorted.sort((a, b) => b.dueDateFormatted.localeCompare(a.dueDateFormatted));
+  }
+  // 'date' is already the backend's own newest-first order.
+  return sorted;
+}
+
+/** Real: fetches a page of the customer's own invoices/credit notes and applies filter/sort. */
 export async function fetchInvoices(
   filter: InvoiceFilter,
   sort: InvoiceSort
 ): Promise<InvoicesResult> {
-  return { ok: true, invoices: mockInvoices(filter, sort), isSampleData: true };
+  try {
+    const data = await odooJsonRpc<InvoicesJsonResponse>('/my/invoices/json', { limit: 50 });
+    if (data.status !== 'success') {
+      return { ok: false, message: data.message || NETWORK_ERROR_MESSAGE };
+    }
+    const invoices = applyFilterAndSort(data.invoices.map(mapInvoice), filter, sort);
+    return { ok: true, invoices, isSampleData: false };
+  } catch {
+    return { ok: false, message: NETWORK_ERROR_MESSAGE };
+  }
 }
 
-/**
- * TEMPORARY: returns the mock invoice (isSampleData: true); `invoice` is null when unknown.
- * TODO: replace with the detail route from docs/backend-requests/015-invoices-list-json.md.
- */
+/** Real: fetches one invoice's header + line items; `invoice` is null when not found/unauthorized. */
 export async function fetchInvoice(id: number): Promise<InvoiceResult> {
-  return { ok: true, invoice: mockInvoice(id), isSampleData: true };
+  try {
+    const data = await odooJsonRpc<InvoiceDetailJsonResponse>(`/my/invoices/${id}/json`, {});
+    if (data.status !== 'success') {
+      // The backend's own "Invoice not found" / "Unauthorized" both mean: nothing to show.
+      return { ok: true, invoice: null, isSampleData: false };
+    }
+    const invoice: InvoiceDetail = {
+      ...mapInvoice(data),
+      lines: data.lines.map((line) => ({
+        id: line.id,
+        name: line.name,
+        quantity: line.quantity,
+        priceUnitFormatted: formatMoney(line.price_unit, data.currency),
+        priceSubtotalFormatted: formatMoney(line.price_subtotal, data.currency),
+      })),
+    };
+    return { ok: true, invoice, isSampleData: false };
+  } catch {
+    return { ok: false, message: NETWORK_ERROR_MESSAGE };
+  }
 }
 
 export type InvoiceMessage = {
