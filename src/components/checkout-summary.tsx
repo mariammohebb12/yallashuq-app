@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { CartSellerGroup, CartSummary } from '@/api/cart';
 import { Fonts } from '@/theme/fonts';
@@ -7,9 +6,13 @@ import { Colors } from '@/theme/theme';
 
 /*
  * The checkout "Order summary" card (the live /shop/checkout and /shop/payment sidebar), shared by
- * the Delivery and Payment steps: item count, Subtotal / Delivery / Taxes / Total, the discount
- * code field, and Seller-wise Delivery. All amounts are the cart's (backend-formatted) values.
- * The discount code isn't applied yet: "Apply" only logs.
+ * the Delivery and Payment steps: item count, Subtotal / Delivery / Taxes / Total, and
+ * Seller-wise Delivery. All amounts are the cart's (backend-formatted) values.
+ *
+ * REMOVED 2026-10-02 (session 6, tracker #2): the discount-code input field. It never applied a
+ * real code ("Apply" only logged) and, per Basem, was never the real mechanism to begin with —
+ * discounts here work through an admin-set %-off-products campaign and gift cards, not a
+ * customer-entered coupon. Removed rather than left as a dead/misleading control.
  */
 
 const COPY = {
@@ -20,20 +23,16 @@ const COPY = {
   subtotal: 'Subtotal',
   taxes: 'Taxes',
   total: 'Total',
-  apply: 'Apply',
   sellerWiseDelivery: 'Seller-wise Delivery',
   freeDelivery: 'You got FREE delivery.',
   free: 'FREE',
   // Fixed 2026-10-02 (session 3, tracker #1): shown when a seller group's delivery charge isn't
-  // calculated yet (real per-seller delivery logic doesn't exist on the backend yet — see
-  // cart.ts's header comment) rather than leaving the row blank.
+  // calculated yet (e.g. no delivery method chosen yet — see cart.ts's header comment) rather
+  // than leaving the row blank.
   notCalculated: 'Calculated at delivery',
-  // COPY FROM THE USER (2026-09-26).
-  discountPlaceholder: 'Gift card or discount code',
 };
 
 export function CheckoutSummary({ cart }: { cart: CartSummary }) {
-  const [discountCode, setDiscountCode] = useState('');
   return (
     <View style={styles.card}>
       <Text style={styles.sectionTitle}>{COPY.orderSummary}</Text>
@@ -45,25 +44,6 @@ export function CheckoutSummary({ cart }: { cart: CartSummary }) {
         <AmountRow label={COPY.taxes} value={cart.totals.taxFormatted} />
         <View style={styles.divider} />
         <AmountRow label={COPY.total} value={cart.totals.totalFormatted} emphasized />
-      </View>
-
-      <View style={styles.discountRow}>
-        <TextInput
-          style={styles.discountInput}
-          value={discountCode}
-          onChangeText={setDiscountCode}
-          placeholder={COPY.discountPlaceholder}
-          placeholderTextColor={Colors.placeholderIcon}
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-        {/* PLACEHOLDER: codes aren't applied yet — only logs. */}
-        <Pressable
-          onPress={() => console.log('Apply code pressed', discountCode)}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}>
-          <Text style={styles.applyText}>{COPY.apply}</Text>
-        </Pressable>
       </View>
 
       <View style={styles.sellerBox}>
@@ -165,36 +145,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.primaryBold,
     color: Colors.primaryOrange,
   },
-  discountRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  discountInput: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.inputBackground,
-    paddingHorizontal: 12,
-    fontFamily: Fonts.primary,
-    fontSize: 14,
-    color: Colors.dark,
-  },
-  applyButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.primaryOrange,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applyText: {
-    fontFamily: Fonts.primaryBold,
-    fontSize: 14,
-    color: Colors.primaryOrange,
-  },
   sellerBox: {
     borderRadius: 14,
     backgroundColor: Colors.phoneCountryBackground,
@@ -234,8 +184,5 @@ const styles = StyleSheet.create({
   },
   freeCharge: {
     color: Colors.verifiedText,
-  },
-  pressed: {
-    opacity: 0.85,
   },
 });

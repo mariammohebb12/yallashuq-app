@@ -117,14 +117,16 @@ export type CartSummaryResult =
  * by each product's real seller, and the order's real totals (amount_untaxed/tax/total — exactly
  * what Odoo itself computed, not recalculated here).
  *
- * Deliberately NOT real: per-seller delivery amounts. Investigated first — the backend route that
- * should compute the "free threshold → Super Admin rule → seller's own charge" hierarchy
- * (/api/delivery/rate, yallashuq_delivery_hub) is a hardcoded stub that always returns 50, not
- * real logic. No real per-seller delivery calculation exists anywhere in the backend to read.
- * Rather than guess at that allocation — which would mean inventing money-affecting logic — each
- * seller group's `delivery.calculated` is `false` (a case this type already had a field for) and
- * `delivery.amountFormatted` is shown as "—" by the Cart screen instead of a fabricated number.
- * `totals.deliveryFormatted` uses the order's real, unallocated delivery total when one exists.
+ * FIXED 2026-10-02 (session 6): per-seller delivery is now real too. Earlier this session this
+ * was left as `calculated: false` because /api/delivery/rate looked like dead-stub code with
+ * nothing real behind it — that read was wrong. Basem confirmed the real engine exists (admin
+ * delivery zones/rules + a per-seller free-shipping quantity threshold), and the backend's
+ * `/shop/cart/json` route now reads it from the same code the live checkout already uses
+ * (`sale.order._get_seller_shipping_breakdown()`). It still needs a delivery method chosen first
+ * (same as the live site's own Delivery step) — until then a seller group is honestly
+ * `calculated: false`, which is correct, not a gap. The free-shipping threshold is a QUANTITY
+ * (buy N items), not a spend amount, so `freeThresholdFormatted`/`remainingForFreeFormatted`
+ * below are plain item counts, not fabricated currency.
  */
 
 type CartJsonLine = {
@@ -139,11 +141,22 @@ type CartJsonLine = {
   price_total: number;
 };
 
+type CartJsonDelivery =
+  | { calculated: false }
+  | {
+      calculated: true;
+      amount: number;
+      is_free: boolean;
+      threshold_configured: boolean;
+      min_qty: number;
+      remaining_qty: number;
+    };
+
 type CartJsonSellerGroup = {
   seller: { id: number; name: string; is_marketplace: boolean };
   lines: CartJsonLine[];
   subtotal: number;
-  delivery: { calculated: false };
+  delivery: CartJsonDelivery;
 };
 
 type CartJsonResponse = {
@@ -204,14 +217,29 @@ export async function fetchCartSummary(): Promise<CartSummaryResult> {
       warning: '',
     })),
     subtotalFormatted: money(group.subtotal),
-    delivery: {
-      calculated: false,
-      // Not shown by the app as a number — see the header comment on why this isn't computed.
-      amountFormatted: '',
-      isFree: false,
-      freeThresholdFormatted: null,
-      remainingForFreeFormatted: null,
-    },
+    delivery: group.delivery.calculated
+      ? {
+          calculated: true,
+          amountFormatted: money(group.delivery.amount),
+          isFree: group.delivery.is_free,
+          // Quantity-based threshold (buy N items), not a spend amount — see header comment.
+          freeThresholdFormatted: group.delivery.threshold_configured
+            ? `${group.delivery.min_qty} item(s)`
+            : null,
+          // Plugged into cart.tsx's `t('cart.freeDeliveryHint', { remaining })` → "Add {{remaining}}
+          // more for free delivery", so this is just the count, not "more" again.
+          remainingForFreeFormatted:
+            group.delivery.threshold_configured && group.delivery.remaining_qty > 0
+              ? `${group.delivery.remaining_qty} item(s)`
+              : null,
+        }
+      : {
+          calculated: false,
+          amountFormatted: '',
+          isFree: false,
+          freeThresholdFormatted: null,
+          remainingForFreeFormatted: null,
+        },
   }));
 
   return {
