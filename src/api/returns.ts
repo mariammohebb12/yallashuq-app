@@ -1,6 +1,7 @@
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockReturnDetail, mockReturnForm, mockReturnList } from './mocks/returns.mock';
 import { odooJsonRpc } from './odoo-client';
+import { formatDate as formatDateLocale, formatMoney as formatMoneyLocale } from '@/utils/locale-format';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -188,37 +189,12 @@ const REFUND_TYPE_LABELS: Record<string, string> = {
   original: 'Original Payment Method',
 };
 
-/** Same format as the wallet / gift cards: "₪ 1,234.50", or "1,234.50 USD" for other currencies. */
-function formatMoney(amount: number, currency: string | false): string {
-  const [whole, cents] = Math.abs(amount).toFixed(2).split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const sign = amount < 0 ? '- ' : '';
-  if (!currency || currency.toUpperCase() === 'ILS') {
-    return `${sign}₪ ${grouped}.${cents}`;
-  }
-  return `${sign}${grouped}.${cents} ${currency}`;
-}
-
-/**
- * MM/DD/YYYY, as the live page shows it. A plain date ("YYYY-MM-DD") is shown as is; an Odoo
- * datetime (UTC) in local time. Anything else is shown as sent.
- */
-function formatDate(value: string | false): string {
-  if (!value) {
-    return '';
-  }
-  const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (plain) {
-    return `${plain[2]}/${plain[3]}/${plain[1]}`;
-  }
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const date = new Date(value.replace(' ', 'T') + (hasZone ? '' : 'Z'));
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()}`;
-}
+// Fixed 2026-10-02, frontend sweep: money/date used to be hardcoded to the live website's own
+// one-format-for-everyone convention (MM/DD/YYYY, plain comma grouping) regardless of the app's
+// selected language — confirmed with Mariam this should NOT match the website; now locale-aware
+// (src/utils/locale-format.ts). Currency contract (₪ for ILS, code suffix otherwise) unchanged.
+const formatMoney = formatMoneyLocale;
+const formatDate = formatDateLocale;
 
 function readableLabel(value: string): string {
   const words = value.replace(/[_-]+/g, ' ').trim();

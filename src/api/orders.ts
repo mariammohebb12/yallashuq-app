@@ -2,6 +2,12 @@ import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockOrderDetail, mockOrderList } from './mocks/orders.mock';
 import { odooJsonRpc } from './odoo-client';
 import { productImageUrl } from './product-image-overrides';
+import {
+  formatDate as formatDateLocale,
+  formatMoney as formatMoneyLocale,
+  formatNumber as formatNumberLocale,
+  formatTime as formatTimeLocale,
+} from '@/utils/locale-format';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -74,6 +80,14 @@ export type OrderLine = {
   priceUnitFormatted: string;
   /** Product's internal reference, e.g. "YO223" (live: "[YO223] Badminton Racket"); null if none. */
   sku: string | null;
+  /**
+   * Added 2026-10-02 (tracker #29, docs/backend-requests/025-order-lines-need-product-id.md):
+   * the product.template id behind this line, straight from the backend's /my/orders/<id>/json
+   * — null for a non-product line (delivery, a note) or on sample data. Lets "Order Again"
+   * (order-again.ts) map a line to a real catalog product directly, instead of the old
+   * HTML-scraping fallback.
+   */
+  productTemplateId: number | null;
   /** e.g. "18% PA"; null when unknown (real data: not in the contract). */
   taxesLabel: string | null;
   /** e.g. "₪ 4,000.00". */
@@ -210,6 +224,7 @@ type OrderJsonResponse = OrderSummaryJson & {
   lines: {
     id: number;
     name: string;
+    product_template_id: number | false;
     product_uom_qty: number;
     price_unit: number;
     price_subtotal: number;
@@ -218,33 +233,24 @@ type OrderJsonResponse = OrderSummaryJson & {
   }[];
 };
 
+// Fixed 2026-10-02, frontend sweep: money/date used to be hardcoded to the live website's own
+// one-format-for-everyone convention (MM/DD/YYYY, plain comma grouping) regardless of the app's
+// selected language — confirmed with Mariam this should NOT match the website; now locale-aware
+// (src/utils/locale-format.ts). Currency contract (₪ for ILS, code suffix otherwise) unchanged.
+const formatMoney = formatMoneyLocale;
+
+/** Plain locale-grouped quantity/unit-price number (no currency symbol). */
 function formatNumber(amount: number): string {
-  const [whole, cents] = Math.abs(amount).toFixed(2).split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${amount < 0 ? '-' : ''}${grouped}.${cents}`;
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}${formatNumberLocale(amount)}`;
 }
 
-/** "₪ 4,720.00" like the live page; any currency other than ILS is shown as its code instead. */
-function formatMoney(amount: number, currency: string | false): string {
-  const value = formatNumber(amount ?? 0);
-  return !currency || currency.toUpperCase() === 'ILS' ? `₪ ${value}` : `${value} ${currency}`;
-}
-
-/** Odoo datetimes are UTC; shown as the live list does: local "MM/DD/YYYY" and "HH:MM:SS". */
+/** Local date/time, in the current language's own convention (was hardcoded MM/DD/YYYY, HH:MM:SS). */
 function formatDateTime(value: string | false): { date: string; time: string } {
   if (!value) {
     return { date: '', time: '' };
   }
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const date = new Date(value.replace(' ', 'T') + (hasZone ? '' : 'Z'));
-  if (Number.isNaN(date.getTime())) {
-    return { date: value, time: '' };
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return {
-    date: `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
-  };
+  return { date: formatDateLocale(value), time: formatTimeLocale(value, true) };
 }
 
 function mapSummary(order: OrderSummaryJson): OrderSummary {
@@ -274,6 +280,7 @@ function mapDetail(order: OrderJsonResponse): OrderDetail {
       quantityFormatted: formatNumber(line.product_uom_qty),
       priceUnitFormatted: formatNumber(line.price_unit),
       sku: null,
+      productTemplateId: line.product_template_id || null,
       taxesLabel: null,
       // price_total (tax included): no tax rows are shown, so the lines add up to the Total.
       amountFormatted: formatMoney(line.price_total, order.currency),

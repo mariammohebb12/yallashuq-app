@@ -1,6 +1,7 @@
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockTracking } from './mocks/delivery-tracking.mock';
 import { odooJsonRpc } from './odoo-client';
+import { formatDateTime as formatDateTimeLocale } from '@/utils/locale-format';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -84,21 +85,11 @@ function statusLabel(code: string): TrackingStatus {
   return { code: code || '', label: words.charAt(0).toUpperCase() + words.slice(1) };
 }
 
-/** Odoo datetimes are UTC ("YYYY-MM-DD HH:MM:SS" or ISO); shown as local MM/DD/YYYY HH:MM. */
+// Fixed 2026-10-02, frontend sweep: was hardcoded to the live website's own MM/DD/YYYY HH:MM
+// regardless of the app's selected language — confirmed with Mariam this should NOT match the
+// website; now locale-aware (src/utils/locale-format.ts).
 function formatDateTime(value: string | false | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const date = new Date(value.replace(' ', 'T') + (hasZone ? '' : 'Z'));
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
+  return value ? formatDateTimeLocale(value) : null;
 }
 
 function sampleData(reason: string): TrackingResult {

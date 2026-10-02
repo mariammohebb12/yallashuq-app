@@ -2,6 +2,7 @@ import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockAddWalletTopUp, mockCartSummary } from './mocks/cart-summary.mock';
 import { mockWallet, mockWithdrawWallets } from './mocks/wallet.mock';
 import { odooJsonRpc } from './odoo-client';
+import { formatDate as formatDateLocale, formatMoney as formatMoneyLocale } from '@/utils/locale-format';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -93,25 +94,12 @@ export type WalletQuery = {
   dateTo?: string;
 };
 
-function formatMoney(amount: number): string {
-  const [whole, cents] = Math.abs(amount).toFixed(2).split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${amount < 0 ? '- ' : ''}₪ ${grouped}.${cents}`;
-}
-
-/** Odoo datetimes are UTC ("YYYY-MM-DD HH:MM:SS" or ISO); shown as the local MM/DD/YYYY. */
-function formatDate(value: string | false): string {
-  if (!value) {
-    return '';
-  }
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const date = new Date(value.replace(' ', 'T') + (hasZone ? '' : 'Z'));
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())}/${date.getFullYear()}`;
-}
+// Fixed 2026-10-02, frontend sweep: money/date used to be hardcoded to the live website's own
+// one-format-for-everyone convention (MM/DD/YYYY, plain comma grouping) regardless of the app's
+// selected language — confirmed with Mariam this should NOT match the website; now locale-aware
+// (src/utils/locale-format.ts). Currency contract (₪, ILS-only here) is unchanged.
+const formatMoney = formatMoneyLocale;
+const formatDate = formatDateLocale;
 
 function operationLabel(operation: string): string {
   const words = operation.replace(/[_-]+/g, ' ').trim();

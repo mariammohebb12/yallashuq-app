@@ -1,6 +1,7 @@
 import { NETWORK_ERROR_MESSAGE, UNEXPECTED_RESPONSE_MESSAGE } from './messages';
 import { mockGiftCards } from './mocks/gift-cards.mock';
 import { odooJsonRpc } from './odoo-client';
+import { formatDate as formatDateLocale, formatMoney as formatMoneyLocale } from '@/utils/locale-format';
 
 /*
  * ---------------------------------------------------------------------------------------------
@@ -66,32 +67,19 @@ type GiftCardsJsonResponse = {
   }[];
 };
 
-/**
- * Same format as the wallet: "₪ 1,234.50". The symbol is only used for ILS (or no currency);
- * any other currency code is shown after the amount rather than with the wrong symbol.
- */
-function formatMoney(amount: number, currency: string | false): string {
-  const [whole, cents] = Math.abs(amount).toFixed(2).split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const sign = amount < 0 ? '- ' : '';
-  if (!currency || currency.toUpperCase() === 'ILS') {
-    return `${sign}₪ ${grouped}.${cents}`;
-  }
-  return `${sign}${grouped}.${cents} ${currency}`;
-}
+// Fixed 2026-10-02, frontend sweep: money/date used to be hardcoded to the live website's own
+// one-format-for-everyone convention (MM/DD/YYYY, plain comma grouping) regardless of the app's
+// selected language — confirmed with Mariam this should NOT match the website; now locale-aware
+// (src/utils/locale-format.ts). Currency contract (₪ for ILS, code suffix otherwise) unchanged.
+const formatMoney = formatMoneyLocale;
 
 function maskCode(code: string): string {
   const trimmed = (code || '').trim();
   return trimmed.length > 4 ? `•••• ${trimmed.slice(-4)}` : '••••';
 }
 
-/** 'YYYY-MM-DD' (a date, no time zone) → MM/DD/YYYY; anything else is shown as sent. */
 function formatDate(value: string | false): string | null {
-  if (!value) {
-    return null;
-  }
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : value;
+  return value ? formatDateLocale(value) : null;
 }
 
 function readableLabel(value: string): string {
